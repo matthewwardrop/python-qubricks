@@ -7,7 +7,7 @@
 import Queue
 import multiprocessing, traceback, logging, resource
 import sys, gc
-
+import warnings
 
 heap = None
 def set_heap(hp):
@@ -26,7 +26,7 @@ def warn(msg, *args):
 
 def spawn(f):
 	def fun(q_in, q_out):
-		
+		warnings.simplefilter("ignore")
 
 		while True:
 			i, args, kwargs = q_in.get()
@@ -42,41 +42,24 @@ def spawn(f):
 			q_out.put((i, r))
 			
 			gc.collect()
-			# warn( 'Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss )
-			# import gc
-			# gc.collect()  # don't care about stuff that would be garbage collected properly
-			# import objgraph
-			# warn( objgraph.show_most_common_types() )
+			warn('Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 			
 	return fun
 
 def spawnonce(f):
 	def fun(q_in, q_out):
-		import warnings
 		warnings.simplefilter("ignore")
 
 		i, args, kwargs = q_in.get()
 		if i is None:
 			return
 		
-		# import tracemalloc
-		# tracemalloc.start()
-
-		# before = tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)])
-
 		r = None
 		try:
 			r = f(*args, **kwargs)
 		except Exception as e:
 			error(traceback.format_exc())
 			raise e
-
-		# after = tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)])
-		# top_stats = after.compare_to(before, 'lineno')
-
-		# print("[ Top 10 Leaks for Process ]")
-		# for stat in top_stats[:10]:
-		#    error(str(stat))
 
 		q_out.put((i, r))
 			
@@ -101,9 +84,9 @@ def spawnonce(f):
 
 class AsyncParallelMap(object):
 
-	DEBUG = False
+	#DEBUG = False
 
-	def __init__(self, f, progress=False, nprocs=None, spawnonce=True):  # Spawnonce is preferable for memory reasons.
+	def __init__(self, f, progress=False, nprocs=None, spawnonce=True):  # Spawnonce uses less memory. Need to chase memory leaks in spawn.
 		multiprocessing.log_to_stderr(logging.WARN)
 		self.q_in = multiprocessing.Queue(1 if not spawnonce else nprocs)
 		self.q_out = multiprocessing.Queue()
@@ -138,7 +121,7 @@ class AsyncParallelMap(object):
 				break
 
 	def __print_progress(self, count):
-		sys.stderr.write("\r %3d%% | %d of %d" % (float(len(self.results)) / count * 100, len(self.results), count))
+		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (float(len(self.results)) / count * 100, len(self.results), count, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.))
 		sys.stderr.flush()
 
 
@@ -147,18 +130,17 @@ class AsyncParallelMap(object):
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
 
-		if self.DEBUG:
+		'''if self.DEBUG:
 			import tracemalloc
 			tracemalloc.start()
 			# from guppy import hpy
 			# hp = hpy()
 			# before = hp.heap()
 			before = tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)])
-			last = None
+			last = None'''
 
 		for i, x in enumerate(X):
 			
-
 			if self.spawnonce and len(self.results) + self.nprocs <= i:  # Wait for processes to finish before starting new ones
 				self.results.append(self.q_out.get())
 			self.q_in.put(x)
@@ -166,13 +148,14 @@ class AsyncParallelMap(object):
 				self.proc.append(multiprocessing.Process(target=spawnonce(self.f), args=(self.q_in, self.q_out)))
 				self.proc[-1].daemon = False
 				self.proc[-1].start()
-			while len(self.proc) > self.nprocs:
+			while len(self.proc) > 2*self.nprocs:
 				p = self.proc.pop(0)
-				p.terminate()
-				del p
+				if not p.is_alive():
+					p.terminate()
+					del p
 			
 			gc.collect()
-			if self.DEBUG:
+			'''if self.DEBUG:
 
 				after = tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)])
 				top_stats = after.compare_to(before, 'lineno')
@@ -189,9 +172,7 @@ class AsyncParallelMap(object):
 					for stat in top_stats[:10]:
 						print(stat)
 
-				last = after
-
-			warn('Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+				last = after'''
 
 			self.sweep_results()
 			if self.progress:
