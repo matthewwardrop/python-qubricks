@@ -4,6 +4,7 @@ import types
 import sys
 from abc import ABCMeta, abstractmethod, abstractproperty
 import time as proftime
+from sympy.core.cache import clear_cache as sympy_clear_cache
 
 from .operators import StateOperator
 
@@ -346,6 +347,9 @@ class Integrator(object):
 			results.append(self.__results_restore(inner_results,indicies,y_orig.shape))
 			progress.run += 1
 		
+		# since we use sympy objects, potentially with cache enabled, we should clear it lest it build up
+		sympy_clear_cache()
+
 		callback.onComplete()
 		
 
