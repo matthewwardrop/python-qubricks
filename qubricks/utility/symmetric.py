@@ -8,6 +8,7 @@ import Queue
 import multiprocessing, traceback, logging, resource
 import sys, gc
 import warnings
+import datetime
 
 heap = None
 def set_heap(hp):
@@ -28,7 +29,6 @@ def spawn(f):
 	def fun(q_in, q_out):
 		warnings.simplefilter("ignore")
 		initial_memory_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-
 		while True:
 			i, args, kwargs = q_in.get()
 			if i is None:
@@ -43,6 +43,7 @@ def spawn(f):
 			q_out.put((i, r))
 			
 			gc.collect()
+			
 			if resource.getrusage(resource.RUSAGE_SELF).ru_maxrss > 2*initial_memory_usage:
 				warn('Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 			
@@ -81,6 +82,8 @@ class AsyncParallelMap(object):
 		self.progress = progress
 		self.spawnonce = spawnonce
 		self.f = f
+		
+		self.start_time = None
 
 		self.reset(f)
 
@@ -104,11 +107,25 @@ class AsyncParallelMap(object):
 				break
 
 	def __print_progress(self, count):
-		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (float(len(self.results)) / count * 100, len(self.results), count, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.))
+		progress = float(len(self.results)) / count
+		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (progress * 100, len(self.results), count, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.))
+		
+		if progress > 0:
+			delta = datetime.datetime.now() - self.start_time
+			delta = datetime.timedelta( delta.total_seconds()/24/3600/progress )
+			sys.stderr.write(" | Remaining: %02dd:%02dh:%02dm:%02ds" % (
+					delta.days,
+					delta.seconds/3600,
+					delta.seconds/60 % 60,
+					delta.seconds % 60
+				)
+			)
+		
 		sys.stderr.flush()
 
 
 	def map(self, X):
+		self.start_time = datetime.datetime.now()
 		count = len(X)
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
