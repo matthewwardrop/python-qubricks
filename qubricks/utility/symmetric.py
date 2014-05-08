@@ -27,6 +27,7 @@ def warn(msg, *args):
 def spawn(f):
 	def fun(q_in, q_out):
 		warnings.simplefilter("ignore")
+		initial_memory_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 		while True:
 			i, args, kwargs = q_in.get()
@@ -42,7 +43,8 @@ def spawn(f):
 			q_out.put((i, r))
 			
 			gc.collect()
-			warn('Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+			if resource.getrusage(resource.RUSAGE_SELF).ru_maxrss > 2*initial_memory_usage:
+				warn('Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 			
 	return fun
 
@@ -65,28 +67,9 @@ def spawnonce(f):
 			
 	return fun
 
-'''def parmap(f, X, nprocs = multiprocessing.cpu_count()):
-	q_in   = multiprocessing.Queue(1)
-	q_out  = multiprocessing.Queue()
-
-	proc = [multiprocessing.Process(target=spawn(f),args=(q_in,q_out)) for _ in range(nprocs)]
-	for p in proc:
-		p.daemon = True
-		p.start()
-
-	sent = [q_in.put(x) for x in X]
-	[q_in.put((None,None,None)) for _ in range(nprocs)]
-	res = [q_out.get() for _ in range(len(sent))]
-
-	[p.join() for p in proc]
-
-	return [(i,x) for i,x in sorted(res)]'''
-
 class AsyncParallelMap(object):
 
-	#DEBUG = False
-
-	def __init__(self, f, progress=False, nprocs=None, spawnonce=True):  # Spawnonce uses less memory. Need to chase memory leaks in spawn.
+	def __init__(self, f, progress=False, nprocs=None, spawnonce=False):
 		multiprocessing.log_to_stderr(logging.WARN)
 		self.q_in = multiprocessing.Queue(1 if not spawnonce else nprocs)
 		self.q_out = multiprocessing.Queue()
@@ -130,15 +113,6 @@ class AsyncParallelMap(object):
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
 
-		'''if self.DEBUG:
-			import tracemalloc
-			tracemalloc.start()
-			# from guppy import hpy
-			# hp = hpy()
-			# before = hp.heap()
-			before = tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)])
-			last = None'''
-
 		for i, x in enumerate(X):
 			
 			if self.spawnonce and len(self.results) + self.nprocs <= i:  # Wait for processes to finish before starting new ones
@@ -148,37 +122,17 @@ class AsyncParallelMap(object):
 				self.proc.append(multiprocessing.Process(target=spawnonce(self.f), args=(self.q_in, self.q_out)))
 				self.proc[-1].daemon = False
 				self.proc[-1].start()
-			while len(self.proc) > 2*self.nprocs:
-				p = self.proc.pop(0)
-				if not p.is_alive():
-					p.terminate()
-					del p
+				while len(self.proc) > 2*self.nprocs:
+					p = self.proc.pop(0)
+					if not p.is_alive():
+						p.terminate()
+						del p
 			
-			gc.collect()
-			'''if self.DEBUG:
-
-				after = tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)])
-				top_stats = after.compare_to(before, 'lineno')
-
-				print("[ Top 10 Leaks ]")
-				for stat in top_stats[:10]:
-					print(stat)
-
-				
-				if last is not None:
-					top_stats = after.compare_to(last, 'lineno')
-
-					print("[ Top 10 Leaks since last check ]")
-					for stat in top_stats[:10]:
-						print(stat)
-
-				last = after'''
-
 			self.sweep_results()
+
+			gc.collect()
 			if self.progress:
 				self.__print_progress(count)
-			
-			gc.collect()
 
 		self.q_in.close()
 		
