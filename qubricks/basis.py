@@ -48,7 +48,7 @@ class Basis(object):
 		self.__name = name
 		self.__dim = dim
 		self.__parameters = parameters
-		self.init(**kwargs)
+		self.init(dim=dim, **kwargs)
 	
 	@abstractmethod
 	def init(self, **kwargs):
@@ -361,8 +361,8 @@ class QubricksBra(sq.Bra):
 	
 class StandardBasis(Basis):
 	
-	def init(self):
-		if self.__dim is None:
+	def init(self,dim=None):
+		if dim is None:
 			raise ValueError("Dimension must be specified.")
 	
 	@property
@@ -372,10 +372,10 @@ class StandardBasis(Basis):
 
 class SpinBasis(StandardBasis):
 
-	def init(self):
-		if self.__dim is None:
+	def init(self,dim=None):
+		if dim is None:
 			raise ValueError("Dimension must be specified.")
-		if self.__dim % 2 == 1:
+		if dim % 2 == 1:
 			raise ValueError("Dimension must be even.")
 	
 	def state_info(self, state, params={}):
