@@ -70,7 +70,7 @@ def spawnonce(f):
 
 class AsyncParallelMap(object):
 
-	def __init__(self, f, progress=False, nprocs=None, spawnonce=False):
+	def __init__(self, f, progress=False, nprocs=None, spawnonce=True):
 		multiprocessing.log_to_stderr(logging.WARN)
 		self.q_in = multiprocessing.Queue(1 if not spawnonce else nprocs)
 		self.q_out = multiprocessing.Queue()

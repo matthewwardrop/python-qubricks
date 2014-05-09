@@ -579,7 +579,7 @@ class DummyOperator(StateOperator):
 	def __call__(self, state, t=0, params={}):
 		return state
 	
-	def process_args(self, **kwargs):
+	def init(self, **kwargs):
 		pass
 	
 	def transform(self, transform_op):
@@ -605,7 +605,7 @@ class SchrodingerOperator(StateOperator):
 	(quantum) state.
 	'''
 	
-	def process_args(self, H):
+	def init(self, H):
 		self.H = H
 	
 	def __call__(self, state, t=0, params={}):
@@ -636,7 +636,7 @@ class LindbladOperator(StateOperator):
 	A StateOperator instance that effects a single-termed Lindblad master equation.
 	'''
 	
-	def process_args(self, coefficient, operator):
+	def init(self, coefficient, operator):
 		self.coefficient = coefficient
 		self.operator = operator
 	

@@ -51,7 +51,7 @@ class Basis(object):
 		self.init(dim=dim, **kwargs)
 	
 	@abstractmethod
-	def init(self, **kwargs):
+	def init(self, dim=None, **kwargs):
 		'''
 		Basis.init_basis is called during the basis initialisation
 		routines, allowing Basis subclasses to initialise themselves.
@@ -141,7 +141,7 @@ class Basis(object):
 		Basis.state_fromSymbolic converts symbolic representations of states into 
 		numerical state vectors.
 		'''
-		return sq.represent(expr, basis=self.sympy_basis, qubricks_basis=self)
+		return sq.represent(expr, basis=self.__sympy_basis, qubricks_basis=self)[0,:]
 	
 	@property
 	def __sympy_basis(self):
