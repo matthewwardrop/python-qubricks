@@ -48,10 +48,10 @@ class Basis(object):
 		self.__name = name
 		self.__dim = dim
 		self.__parameters = parameters
-		self.init(name=name, dim=dim, parameters=None, **kwargs)
+		self.init(**kwargs)
 	
 	@abstractmethod
-	def init(self, name="", dim=None, parameters=None, **kwargs):
+	def init(self, **kwargs):
 		'''
 		Basis.init_basis is called during the basis initialisation
 		routines, allowing Basis subclasses to initialise themselves.
@@ -361,22 +361,21 @@ class QubricksBra(sq.Bra):
 	
 class StandardBasis(Basis):
 	
+	def init(self):
+		if self.__dim is None:
+			raise ValueError("Dimension must be specified.")
+	
 	@property
 	def operator(self):
 		return Operator(parameters=self.p, components={None:np.eye(self.dim)})
 
-	def init_basis(self, name="", dim=None, parameters=None):
-		if dim is None:
-			raise ValueError("Dimension must be specified.")
-
-
 
 class SpinBasis(StandardBasis):
 
-	def init_basis(self, name="", dim=None, parameters=None):
-		if dim is None:
+	def init(self):
+		if self.__dim is None:
 			raise ValueError("Dimension must be specified.")
-		if dim % 2 == 1:
+		if self.__dim % 2 == 1:
 			raise ValueError("Dimension must be even.")
 	
 	def state_info(self, state, params={}):
