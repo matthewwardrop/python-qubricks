@@ -37,14 +37,14 @@ class Measurement(object):
 	
 	def __init__(self,system,**kwargs):
 		self._system = system
-		self.init_measurement(**kwargs)
+		self.init(**kwargs)
 	
 	@abstractmethod
-	def init_measurement(self,**kwargs):
+	def init(self,**kwargs):
 		'''
-		Measurement.init_measurement should be specified by measurement subclasses.
+		Measurement.init should be specified by measurement subclasses.
 		'''
-		pass
+		raise NotImplementedError("Measurement.init has not been implemented.")
 		
 	def __call__(self,*args,**kwargs):
 		'''
@@ -311,6 +311,9 @@ class Amplitude(Measurement):
 	Amplitude is a sample Measurement subclass that measures the amplitude of being 
 	in certain basis states as function of time throughout some state evolution.
 	'''
+	
+	def init_measurement(self):
+		pass
 	
 	def result_type(self,*args,**kwargs):
 		return [ 	

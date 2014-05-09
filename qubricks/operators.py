@@ -462,15 +462,15 @@ class StateOperator(object):
 	def __init__(self, parameters=None, basis=None, **kwargs):
 		self.__p = parameters
 		self.__basis = basis
-		self.process_args(**kwargs)
+		self.init(**kwargs)
 	
 	@abstractmethod
-	def process_args(self, **kwargs):
+	def init(self, **kwargs):
 		'''
-		StateOperator.process_args is called when StateOperator subclasses are 
+		StateOperator.init is called when StateOperator subclasses are 
 		initialised, which allows subclasses to set themselves up as appropriate.
 		'''
-		raise NotImplementedError("StateOperator.process_args is not implemented.")
+		raise NotImplementedError("StateOperator.init is not implemented.")
 	
 	@property
 	def p(self):

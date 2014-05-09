@@ -48,12 +48,12 @@ class Basis(object):
 		self.__name = name
 		self.__dim = dim
 		self.__parameters = parameters
-		self.__basis_init__(name=name, dim=dim, parameters=None, **kwargs)
+		self.init(name=name, dim=dim, parameters=None, **kwargs)
 	
 	@abstractmethod
-	def __basis_init__(self, name="", dim=None, parameters=None, **kwargs):
+	def init(self, name="", dim=None, parameters=None, **kwargs):
 		'''
-		Basis.__basis_init__ is called during the basis initialisation
+		Basis.init_basis is called during the basis initialisation
 		routines, allowing Basis subclasses to initialise themselves.
 		'''
 		pass
@@ -365,7 +365,7 @@ class StandardBasis(Basis):
 	def operator(self):
 		return Operator(parameters=self.p, components={None:np.eye(self.dim)})
 
-	def __basis_init__(self, name="", dim=None, parameters=None):
+	def init_basis(self, name="", dim=None, parameters=None):
 		if dim is None:
 			raise ValueError("Dimension must be specified.")
 
@@ -373,7 +373,7 @@ class StandardBasis(Basis):
 
 class SpinBasis(StandardBasis):
 
-	def __basis_init__(self, name="", dim=None, parameters=None):
+	def init_basis(self, name="", dim=None, parameters=None):
 		if dim is None:
 			raise ValueError("Dimension must be specified.")
 		if dim % 2 == 1:

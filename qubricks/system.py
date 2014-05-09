@@ -93,7 +93,7 @@ class QuantumSystem(object):
 		Add the bases which are going to be used by this QuantumSystem
 		instance.
 		'''
-		pass
+		raise NotImplementedError
 	
 	@abstractmethod
 	def setup_hamiltonian(self):
@@ -108,18 +108,18 @@ class QuantumSystem(object):
 		'''
 		Add the named/important states to be used by this quantum system.
 		'''
-		pass
+		raise NotImplementedError
 	
 	@abstractmethod
 	def setup_measurements(self):
 		'''
 		Add the measurements to be used by this quantum system instance.
 		'''
-		pass
+		raise NotImplementedError
 	
 	@abstractproperty
 	def default_derivative_ops(self):
-		pass
+		raise NotImplementedError
 	
 	@abstractmethod
 	def get_derivative_ops(self, components=None):
@@ -127,7 +127,7 @@ class QuantumSystem(object):
 		Setup the derivative operators to be implemented on top of the
 		basic quantum evolution operator.
 		'''
-		pass
+		raise NotImplementedError
 	
 	def __get_derivative_ops(self, components=None):
 		ops = {}
