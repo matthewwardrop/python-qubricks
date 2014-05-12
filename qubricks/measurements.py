@@ -312,7 +312,7 @@ class Amplitude(Measurement):
 	in certain basis states as function of time throughout some state evolution.
 	'''
 	
-	def init_measurement(self):
+	def init(self):
 		pass
 	
 	def result_type(self,*args,**kwargs):

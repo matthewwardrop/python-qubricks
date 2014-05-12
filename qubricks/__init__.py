@@ -1,6 +1,6 @@
 __author__ = 'Matthew Wardrop'
 __author_email__ = 'mister dot <surname> at gmail'
-__version__ = '0.6'
+__version__ = '0.7'
 
 from .system import QuantumSystem
 from .measurements import Measurement
