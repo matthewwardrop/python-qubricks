@@ -324,8 +324,8 @@ class Amplitude(Measurement):
 	def result_shape(self,*args,**kwargs):
 		return (len(kwargs['y_0s']),len(kwargs.get('times',0)))
 	
-	def measure(self,times,y_0s,params={},subspace=None,basis=None,**kwargs):
-		r = self._system.integrate(times,y_0s,params=params,basis=basis,**kwargs)
+	def measure(self,times,y_0s,params={},subspace=None,**kwargs):
+		r = self._system.integrate(times,y_0s,params=params,**kwargs)
 
 		rval = np.empty((len(r),len(times)),dtype=self.result_type(y_0s=y_0s,times=times))
 
