@@ -72,8 +72,6 @@ class AsyncParallelMap(object):
 
 	def __init__(self, f, progress=False, nprocs=None, spawnonce=True):
 		multiprocessing.log_to_stderr(logging.WARN)
-		self.q_in = multiprocessing.Queue(1 if not spawnonce else nprocs)
-		self.q_out = multiprocessing.Queue()
 		if nprocs is None:
 			self.nprocs = multiprocessing.cpu_count()
 		else:
@@ -82,22 +80,28 @@ class AsyncParallelMap(object):
 		self.progress = progress
 		self.spawnonce = spawnonce
 		self.f = f
+
+	def reset(self, f, count_offset=None,count_total=None):
+		self.f = f
 		
-		self.start_time = None
-
-		self.reset(f)
-
-	def reset(self, f):
+		self.count_offset = count_offset
+		self.count_total = count_total
+		
 		self.results = []
+		self.start_time = None
+		
+		self.q_in = multiprocessing.Queue(1 if not spawnonce else self.nprocs)
+		self.q_out = multiprocessing.Queue()
+		
 		while len(self.proc) > 0:
 			self.proc.pop().terminate()
 		if not self.spawnonce:
-			self.proc = [multiprocessing.Process(target=spawn(f), args=(self.q_in, self.q_out)) for _ in range(self.nprocs)]
+			self.proc = [multiprocessing.Process(target=spawn(self.f), args=(self.q_in, self.q_out)) for _ in range(self.nprocs)]
 			for p in self.proc:
 				p.daemon = True
 				p.start()
 
-	def sweep_results(self):
+	def __sweep_results(self):
 		while True:
 			try:
 				self.results.append(self.q_out.get(timeout=0.01))
@@ -107,12 +111,21 @@ class AsyncParallelMap(object):
 				break
 
 	def __print_progress(self, count):
-		progress = float(len(self.results)) / count
-		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (progress * 100, len(self.results), count, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.))
+		
+		current = len(self.results) + self.count_offset if self.count_offset is not None else 0
+		total = count + self.count_offset if self.count_total is None else self.count_total
+		
+		progress = float(current) / total
+		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (
+								progress * 100,
+								current, 
+								total, 
+								resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.)
+						)
 		
 		if progress > 0:
 			delta = datetime.datetime.now() - self.start_time
-			delta = datetime.timedelta( delta.total_seconds()/24/3600/progress )
+			delta = datetime.timedelta( delta.total_seconds()/24/3600 * (1-progress)/progress )
 			sys.stderr.write(" | Remaining: %02dd:%02dh:%02dm:%02ds" % (
 					delta.days,
 					delta.seconds/3600,
@@ -121,11 +134,16 @@ class AsyncParallelMap(object):
 				)
 			)
 		
+		if current == total:
+			sys.stderr.write('\n')
+		
 		sys.stderr.flush()
 
 
-	def map(self, X):
-		self.start_time = datetime.datetime.now()
+	def map(self, X, count_offset=None,count_total=None,start_time=None):
+		self.reset(self.f,count_offset=count_offset,count_total=count_total)
+		
+		self.start_time = start_time if start_time is not None else datetime.datetime.now()
 		count = len(X)
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
@@ -145,7 +163,7 @@ class AsyncParallelMap(object):
 						p.terminate()
 						del p
 			
-			self.sweep_results()
+			self.__sweep_results()
 
 			gc.collect()
 			if self.progress:
@@ -157,8 +175,6 @@ class AsyncParallelMap(object):
 			self.results.append(self.q_out.get())
 			if self.progress:
 				self.__print_progress(count)
-		if self.progress:
-			print
 		
 		if not self.spawnonce:
 			[p.terminate() if p.is_alive() else False for p in self.proc]

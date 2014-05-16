@@ -14,7 +14,7 @@ try:
 	import sage
 	from .integrator import SageIntegrator as Integrator
 except ImportError:
-	from .integrator import QuantumIntegrator as Integrator
+	from .integrator import RealIntegrator as Integrator
 
 class QuantumSystem(object):
 	'''

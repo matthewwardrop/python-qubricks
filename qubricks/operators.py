@@ -109,7 +109,7 @@ class Operator(object):
 			return R
 	
 	def __repr__(self):
-		return "<Operator with shape %s>" % (self.shape)
+		return "<Operator with shape %s>" % (str(self.shape))
 	
 	@property
 	def shape(self):
@@ -646,8 +646,8 @@ class LindbladOperator(StateOperator):
 		
 		O = self.operator(t=t, **params)
 		Od = O.transpose().conjugate()
-
-		return self.p(self.coefficient, t=t, **params) / self.p.c_hbar ** 2 * (dot(O, state, Od) - 0.5 * (dot(Od, O, state) + dot(state, Od, O)))
+		
+		return self.p(self.coefficient, t=t, **params)/self.p.c_hbar**2 * (dot(O, state, Od) - 0.5 * (dot(Od, O, state) + dot(state, Od, O)))
 	
 	def transform(self, transform_op):
 		return LindbladOperator(self.p, coefficient=self.coefficient, operator=transform_op(self.operator))

@@ -5,6 +5,7 @@ import os
 import re
 import shelve
 import sys
+import datetime
 
 import numpy as np
 
@@ -90,17 +91,18 @@ class Measurement(object):
 			shape = shape+rshape
 
 		a = np.empty(shape, dtype=dtype)
+		a.fill(np.nan)
 
 		return a
 	
-	def _iterate_results_add(self,resultsObj=None,result=None,indicies=None,levels_info=None,params={}):
+	def _iterate_results_add(self,resultsObj=None,result=None,indicies=None,params={}):
 		'''
 		This is a generic update for a particular iteration of the Measurements.iterate. It can be 
 		overloaded if necessary.
 		'''
 		resultsObj[indicies] = result
 	
-	def iterate(self,ranges,params={},nprocs=None,*args,**kwargs):
+	def iterate_yielder(self,ranges,params={},masks=None,nprocs=None,yield_every=100,results=None,*args,**kwargs):
 		'''
 		Measurement.iterate performs the calculations in Measurement.measure method
 		multiple times, sweeping over multi-dimensional parameter ranges, as specified
@@ -123,6 +125,22 @@ class Measurement(object):
 		[ {'pam1': (0,1,10), 'pam2': range(10)}, {'pam3': (0,1,5), 'pam4': range(5)} ]
 		In this example, a 2D sweep takes place; the first dimension having 10 iterations,
 		and the second having 5; with pam1, pam2, pam3 and pam4 being updated appropriately.
+		
+		`masks` allows one to filter ranges within the parameter ranges to skip. This
+		can be useful if those runs have already been collected, or if they are outside
+		of the domain in which you are especially interested. `masks` should be a list
+		of functions with a declaration similar to:
+		mask (indicies, ranges=None, params={})
+		Masks should not change any of the lists or dictionaries passed to them; and simply
+		return True if this datapoint should be collected. If multiple masks are provided,
+		data will only be collected if all masks return True. Iteration numbers are 
+		zero indexed.
+		
+		If `yield_every` is not None, every `yield_every` runs, the method yield the current
+		results as a tuple: (ranges,results) . This can be used to save the results iteratively
+		as the calculations are performed; which may help to prevent data loss in the event
+		of interruptions like power loss. If `yield_every` is supposed to be None, you should
+		use `Measurement.iterate` instead.
 		'''
 		# Check if ranges is just a single range, and if so make it a list
 		if isinstance(ranges,dict):
@@ -157,9 +175,19 @@ class Measurement(object):
 			apm = None
 			callback = IteratorCallback(levels_info,counts)
 		
-		results = self._iterate_results_init(ranges=ranges,shape=tuple(counts),params=params,*args,**kwargs)
+		results_new = self._iterate_results_init(ranges=ranges,shape=tuple(counts),params=params,*args,**kwargs)
+		if results is None:
+			results = results_new
+		else:
+			if results.shape != results_new.shape:
+				raise ValueError("Invalid results given to continue. Shape %s does not agree with result dimensions %s" % (results.shape,results_new.shape))
+			if results.dtype != results_new.dtype:
+				raise ValueError("Invalid results given to continue. Type %s does not agree with result type %s" % (results.dtype,results_new.dtype))
 
 		def vary_pams(level=0,levels_info=[],output=[]):
+			'''
+			This method generates a list of different parameter configurations
+			'''
 			level_info = {
 				'name': ",".join(ranges[level].keys()),
 				'count': counts[level],
@@ -187,27 +215,57 @@ class Measurement(object):
 					# Recurse problem
 					vary_pams(level=level+1,levels_info=levels_info,output=output)
 				else:
-					if self.multiprocessing:
-						kwargs2 = copy.copy(kwargs)
-						kwargs2['params'] = copy.copy(params)
-						kwargs2['callback_fallback'] = False
-						output.append( (
-								tuple(x['iteration']-1 for x in levels_info),
-								copy.copy(args),
-								kwargs2
-							) )
-					else:
-						self._iterate_results_add(resultsObj=results,result=self.measure(*args,params=params,callback=callback,**kwargs),indicies=tuple(x['iteration']-1 for x in levels_info),levels_info=levels_info,params=params)
+					iteration = tuple(x['iteration']-1 for x in levels_info)
+					if masks is not None and isinstance(masks,list):
+						skip = False
+						for mask in masks:
+							if not mask(iteration,ranges=ranges,params=params):
+								skip = True
+								break
+						if skip:
+							continue
+							
+
+					kwargs2 = copy.copy(kwargs)
+					kwargs2['params'] = copy.copy(params)
+					kwargs2['callback_fallback'] = False
+					output.append( (
+							iteration,
+							copy.copy(args),
+							kwargs2
+						) )
 
 			if self.multiprocessing:
 				return output
 		
 		output = vary_pams(levels_info=levels_info)
-		if self.multiprocessing:
-			res = apm.map(output)
-			for i,value in res:
-				self._iterate_results_add(resultsObj=results,result=value,indicies=i)
-		return ranges,results
+		
+		def splitlist(l,length=None):
+			if length is None:
+				yield l
+			else:
+				for i in xrange(0,len(l),length):
+					yield l[i:i+length]
+		
+		start_time = datetime.datetime.now()
+		for i,tasks in enumerate(splitlist(output,yield_every)):
+			if self.multiprocessing:
+				res = apm.map(tasks,count_offset= (yield_every*i if yield_every is not None else None),count_total=len(output),start_time=start_time )
+			else:
+				res = [ (indicies,self.measure(*args,callback=callback,**kwargs)) for indicies,args,kwargs in tasks] # TODO: neaten legacy mode callback
+			for indicies,value in res:
+				self._iterate_results_add(resultsObj=results,result=value,indicies=indicies)
+			
+			yield (ranges,results)
+	
+	def iterate(self,*args,**kwargs):
+		'''
+		A wrapper around the `Measurement.iterate_yielder` method in the event that 
+		one does not want to deal with a generator object. This simply returns
+		the final result.
+		'''
+		from collections import deque
+		return deque(self.iterate_yielder(*args, yield_every=None, **kwargs),maxlen=1).pop()
 
 	def iterate_to_file(self,path,*args,**kwargs):
 		'''
@@ -215,25 +273,46 @@ class Measurement(object):
 		to a python shelve file at `path`; all other arguments are passed through to the
 		Measurement.iterate method.
 		'''
-
-		if not os.path.exists(path):
-
-			if not os.path.exists(os.path.dirname(path)):
-				os.makedirs(os.path.dirname(path))
-			elif os.path.exists(os.path.dirname(path)) and os.path.isfile(os.path.dirname(path)):
-				raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
-
-			ranges,results = self.iterate(*args,**kwargs)
-
+		
+		def save(ranges,results):
 			s = shelve.open(path)
 			s['ranges'] = ranges
 			s['results'] = results
 			s.close()
-		else:
+		
+		def get():
 			s = shelve.open(path)
 			ranges = s['ranges']
 			results = s['results']
 			s.close()
+			return ranges,results
+
+		if not os.path.exists(os.path.dirname(path)):
+			os.makedirs(os.path.dirname(path))
+		elif os.path.exists(os.path.dirname(path)) and os.path.isfile(os.path.dirname(path)):
+			raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
+		
+		if os.path.isfile(path):
+			ranges,results = get()
+			
+			if len(np.where(np.isnan(results.view('float')))[0]) == 0:
+				return ranges,results
+				
+			def continue_mask(indicies, ranges=None, params={}): # Todo: explore other mask options
+				return np.any(np.isnan(results[indicies].view('float')))
+			
+			masks = kwargs.get('masks',None)
+			if masks is None:
+				masks = []
+			masks.append( continue_mask )
+			kwargs['masks'] = masks
+			
+			coloured("Attempting to continue data collection...","YELLOW",True)
+		else:
+			results = None
+	
+		for ranges,results in self.iterate_yielder(*args,results=results,**kwargs):
+			save(ranges,results)
 
 		return ranges,results
 

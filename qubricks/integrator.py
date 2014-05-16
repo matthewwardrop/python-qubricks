@@ -5,6 +5,7 @@ import sys
 from abc import ABCMeta, abstractmethod, abstractproperty
 import time as proftime
 from sympy.core.cache import clear_cache as sympy_clear_cache
+import warnings
 
 from .operators import StateOperator
 
@@ -442,6 +443,7 @@ class QuantumIntegrator(Integrator):
 	#
 	# Set up integrator
 	def _integrator(self,f,**kwargs):
+		warnings.warn("QuantumIntegrator can sometimes be unreliable. Please use RealIntegrator instead.")
 		from scipy.integrate import ode
 		
 		defaults = {
@@ -492,7 +494,6 @@ class RealIntegrator(Integrator):
 		if 'nsteps' not in kwargs:
 			kwargs['nsteps'] = 1e9
 			
-		
 		r = ode(f).set_integrator('vode', atol=self._error_abs, rtol=self._error_rel, **kwargs)
 		return r
 
