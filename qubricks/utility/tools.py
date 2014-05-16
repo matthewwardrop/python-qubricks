@@ -14,8 +14,8 @@ def d_simulate(simulate):
 		if not getattr(self,'__prepared',False):
 			try:
 				self.prepare()
-			except:
-				raise ValueError, "Not yet prepared."
+			except Exception as e:
+				raise ValueError, "Not yet prepared. Attempts to prepare caused an exception: %s" % e
 		if not hasattr(self,'__resulted'):
 			print coloured("Simulating...","YELLOW",True),
 			sys.stdout.flush()
