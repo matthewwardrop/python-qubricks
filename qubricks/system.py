@@ -183,7 +183,8 @@ class QuantumSystem(object):
 		Add a named state, provided in some basis `basis`.
 		'''
 		# TODO: check dimensions
-		state = np.array(state)
+		state = np.array(state,dtype=complex) # Force internally stored named states to be complex arrays
+		state /= np.linalg.norm(state)
 		if len(state.shape) > 1:
 			self.__named_ensembles[name] = self.basis(basis).transform(state, params=params, inverse=True) if basis is not None else state
 		else:
@@ -456,7 +457,7 @@ class QuantumSystem(object):
 		
 		for _, operator in self.derivative_ops(ops=operators, components=components).items():
 			if basis is not None:
-				op = operator.transform(basis.transform_op(basis=self.basis(None), threshold=threshold))
+				op = operator.change_basis(basis,threshold=threshold)
 			else:
 				op = operator
 				

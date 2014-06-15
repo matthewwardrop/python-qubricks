@@ -4,6 +4,7 @@ import re
 import warnings
 
 import numpy as np
+import sympy
 import sympy.physics.quantum as sq
 
 from .operators import Operator
@@ -141,7 +142,7 @@ class Basis(object):
 		Basis.state_fromSymbolic converts symbolic representations of states into 
 		numerical state vectors.
 		'''
-		return sq.represent(expr, basis=self.__sympy_basis, qubricks_basis=self)[0,:]
+		return np.array(sq.represent(expr, basis=self.__sympy_basis, qubricks_basis=self).tolist()[0],dtype=object)
 	
 	@property
 	def __sympy_basis(self):
@@ -183,7 +184,6 @@ class Basis(object):
 					output = self.operator * state * self.operator.inverse()
 				else:
 					output = self.operator.inverse() * state * self.operator
-			
 			else:
 				raise ValueError
 
@@ -221,35 +221,41 @@ class Basis(object):
 		Basis.__filter is a private method that implements the thresholding described in
 		the documentation for Basis.transform .
 		'''
+		
 		def __filter_threshold(a):
 			# TODO: DO THIS MORE NEATLY?
 			'''
 			Determine the minimum threshold over real and imaginary components which should capture everything.
 			'''
-
-			real_ind = np.where(np.abs(a.real) > 1e-15)
-			t_real = np.min(np.abs(a[real_ind])) if len(real_ind[0]) > 0 else np.inf
-
-			imag_ind = np.where(np.abs(a.imag) > 1e-15)
-			t_imag = np.min(np.abs(a[imag_ind])) if len(imag_ind[0]) > 0 else np.inf
-
-			return min(t_real, t_imag)
-
+			try:
+				real_ind = np.where(np.abs(a.real) > 1e-15)
+				t_real = np.min(np.abs(a[real_ind])) if len(real_ind[0]) > 0 else np.inf
+	
+				imag_ind = np.where(np.abs(a.imag) > 1e-15)
+				t_imag = np.min(np.abs(a[imag_ind])) if len(imag_ind[0]) > 0 else np.inf
+	
+				return min(t_real, t_imag)
+			except:
+				return False
+		
 		if threshold is False:
 			return output
-		if threshold is True:
-			warnings.warn("Be careful with auto-thresholding.")
-			threshold = __filter_threshold(self.operator(**params))
-			# print "op threshold", threshold
-			if state is not None:
-				if isinstance(state, Operator):
-					threshold = np.min(map(__filter_threshold, state.components.values()))  # TODO: do more abstractly?
-				else:
-					threshold = min(__filter_threshold(state), threshold)
-			# print "w/ state threshold", threshold
-			threshold *= 1e-8
-
+		
+		warnings.warn("Be careful with auto-thresholding.")
+		threshold = __filter_threshold(self.operator(**params))
+		# print "op threshold", threshold
+		if state is not None:
+			if isinstance(state, Operator):
+				threshold = np.min(map(__filter_threshold, state.components.values()))  # TODO: do more abstractly?
+			else:
+				threshold = min(__filter_threshold(state), threshold)
+		# print "w/ state threshold", threshold
+		if threshold is False:
+			return output
+		
+		threshold *= 1e-8
 		# print "final threshold", threshold
+		
 		
 		if isinstance(state, Operator):
 			output.clean(threshold)
@@ -311,7 +317,7 @@ class QubricksKet(sq.Ket):
 		if 'qubricks_basis' not in options:
 			raise ValueError("Qubricks basis object must be passed to ket for representation.")
 		basis = options['qubricks_basis']
-		return basis.state_fromString(str(self))
+		return sympy.Matrix( basis.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
 
 	def _eval_innerproduct_QubricksBra(self, bra, **hints):
 		return 1 if bra.label == self.label else 0
@@ -354,7 +360,7 @@ class QubricksBra(sq.Bra):
 			raise ValueError("Qubricks basis object must be passed to ket for representation.")
 		basis = options['qubricks_basis']
 		l = ",".join(map(str, self.label))
-		return basis.state_fromString("|%s>" % l).transpose()
+		return sympy.Matrix(basis.state_fromString("|%s>" % l).transpose()).applyfunc(sympy.nsimplify)
 
 
 ######## Useful Basis Implementations ###################################################################

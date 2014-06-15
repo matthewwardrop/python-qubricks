@@ -39,16 +39,21 @@ class Operator(object):
 	For documentation on the methods of the Operator object, please see inline.
 	'''
 	
-	def __init__(self, components, parameters=None, basis=None):
+	def __init__(self, components, parameters=None, basis=None, exact=False):
 		self.__p = parameters
 		self.__shape = None
 		self.components = {}
+		self.__exact = exact
 		
 		self.__basis = None
 		self.set_basis(basis)
 		self.__process_components(components)
 		self.__optimised = {}
 	
+	@property
+	def exact(self):
+		return self.__exact
+		
 	def __process_components(self, components):
 		'''
 		Import the specified components, verifying that each component has the same shape.
@@ -185,7 +190,7 @@ class Operator(object):
 		if transform_op is not None:
 			for pam, component in self.components.items():
 				O[pam] = transform_op(component)
-		return self.__new(O)
+		return self._new(O)
 	
 	
 	############## Subspace methods ###################################################
@@ -222,13 +227,27 @@ class Operator(object):
 		
 		components = {}
 		
+		
 		for pam, component in self.components.items():
-			if type(component) == np.ndarray:
-				components[pam] = np.reshape(component[np.kron([1]*len(indicies),indicies),np.kron(indicies,[1]*len(indicies))],(len(indicies),len(indicies)))
-			else:
-				components[pam] = component[tuple(indicies),tuple(indicies)]
 			
-		return self.__new(components)
+			if type(component) != np.ndarray:
+				new = type(component)(np.zeros( (len(indicies),len(indicies)) ))
+			else:
+				new = np.zeros( (len(indicies),len(indicies)) , dtype=component.dtype)
+			
+			# Do basis index sweeping to allow for duck-typing
+			for i,I in enumerate(indicies):
+				for j,J in enumerate(indicies):
+					new[i,j] = component[I,J]
+			
+			components[pam] = new
+					
+			#if type(component) != np.ndarray:
+			#	components[pam] = np.reshape(component[np.kron([1]*len(indicies),indicies),np.kron(indicies,[1]*len(indicies))],(len(indicies),len(indicies)))
+			#else:
+			#	components[pam] = component[tuple(indicies),tuple(indicies)]
+			
+		return self._new(components)
 	
 	############### Other utility methods #############################################
 	
@@ -255,20 +274,20 @@ class Operator(object):
 	
 	########## Define Basic Arithmetic ################################################
 	
-	def __new(self, components={}):
+	def _new(self, components={}):
 		return Operator(components, parameters=self.__p)
 	
-	def __copy(self):
+	def _copy(self):
 		return Operator(self.components, parameters=self.__p)
 	
 	def __add__(self, other):
-		O = self.__copy()
+		O = self._copy()
 		for pam, component in other.components.items():
 			O.components[pam] = O.components.get(pam, 0) + component
 		return O
 		
 	def __sub__(self, other):
-		O = self.__copy()
+		O = self._copy()
 		for pam, component in other.components.items():
 			O.components[pam] = O.components.get(pam, 0) - component
 		return O
@@ -284,15 +303,18 @@ class Operator(object):
 			for pam, component in self.components.items():
 				for pam_other, component_other in other.components.items():
 					mpam = pam if pam_other is None else (pam_other if pam is None else '*'.join((pam, pam_other))) 
-					# print mpam
-					components[mpam] = components.get(mpam, sympy.zeros(self.shape)) + self.__dot(component, component_other)
+					r = self.__dot(component, component_other)
+					if mpam not in components:
+						if type(r) != np.ndarray or self.exact or other.exact:
+							components[mpam] = sympy.zeros(self.shape)
+					components[mpam] = components.get(mpam,0) + r
 		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
 			for pam, component in self.components.items():
 				components[pam] = self.__dot(component, other)
 				
 		else:
 			raise ValueError("Operator cannot be multiplied by type: %s" % type(other))
-		return self.__new(components)
+		return self._new(components)
 
 	def __rmul__(self, other):
 		components = {}
@@ -301,7 +323,7 @@ class Operator(object):
 				components[pam] = self.__dot(other, component)
 		else:
 			raise ValueError("Operator cannot be multiplied from left by type: %s" % type(other))
-		return self.__new(components)
+		return self._new(components)
 	
 	def tensor(self, other):
 		'''
@@ -316,7 +338,7 @@ class Operator(object):
 		for pam, component in other.components.items():
 			components[pam] = components.get(pam, 0) + spla.block_diag(sp.zeros(self.shape), self.__np(component))
 		
-		return self.__new(components)
+		return self._new(components)
 	
 	def inverse(self):
 		'''
@@ -333,7 +355,7 @@ class Operator(object):
 
 				if e.is_Number:
 					if None not in components:
-						components[None] = sympy.zeros(M.shape)
+						components[None] = sympy.zeros(M.shape) if self.exact else np.zeros(M.shape,dtype=complex)
 					components[None][i, j] += e
 				else:
 					from .utility import getFreeSymbolCoefficients
@@ -341,11 +363,21 @@ class Operator(object):
 						key = str(symbol)
 
 						if key not in components:
-							components[key] = sympy.zeros(M.shape)
+							components[key] = sympy.zeros(M.shape) if self.exact else np.zeros(M.shape,dtype=complex)
 
 						components[key][i, j] += coefficient
 		
-		return self.__new(components)
+		return self._new(components)
+
+class OrthogonalOperator(Operator):
+	
+	def inverse(self): # Orthogonal Operators are orthogonal matrices. Thus Q^-1 = Q^T
+		components = {}
+		
+		for key, c in self.components.items():
+			components[key] = c.transpose()
+		
+		return self._new(components)
 
 
 class OperatorSet(object):
