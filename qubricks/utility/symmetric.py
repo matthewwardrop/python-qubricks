@@ -112,7 +112,7 @@ class AsyncParallelMap(object):
 
 	def __print_progress(self, count):
 		
-		current = len(self.results) + self.count_offset if self.count_offset is not None else 0
+		current = len(self.results) + ( self.count_offset if self.count_offset is not None else 0 )
 		total = count + self.count_offset if self.count_total is None else self.count_total
 		
 		progress = float(current) / total
