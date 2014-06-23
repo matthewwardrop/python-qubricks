@@ -476,7 +476,7 @@ class QuantumSystem(object):
 		which derivative operators should be used in this integration. `params` is a list of parameter overrides which will be
 		used unless further overridden, as in Measurement.iterate . All other arguments are passed onto the Integrator object.
 		'''
-		ops = self.__integrator_operators(components=None, operators=operators, basis=output, threshold=threshold)
+		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 		
 		use_ensemble = self.use_ensemble(ops) or True in [len(np.array(s).shape) == 2 for s in initial]
 		# Prepare states
