@@ -275,7 +275,7 @@ class Basis(object):
 				raise ValueError, '`basis` must be a Basis object.'
 			state = basis.transform(state, inverse=True, threshold=threshold, params=params)
 		
-		return self.transform(state, threshold=threshold, **params)
+		return self.transform(state, threshold=threshold, params=params)
 	
 	def transform_to(self, state, basis=None, threshold=False, params={}):
 		'''
@@ -288,7 +288,7 @@ class Basis(object):
 				raise ValueError, '`basis` must be a Basis object.'
 			return basis.transform_from(state, basis=self, threshold=threshold, params=params)
 		
-		return self.transform(state, inverse=True, threshold=threshold, **params)
+		return self.transform(state, inverse=True, threshold=threshold, params=params)
 	
 	def transform_op(self, basis=None, invert=False, threshold=False, params={}):
 		'''
