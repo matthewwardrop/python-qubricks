@@ -235,8 +235,7 @@ class Measurement(object):
 							kwargs2
 						) )
 
-			if self.multiprocessing:
-				return output
+			return output
 		
 		output = vary_pams(levels_info=levels_info)
 		
@@ -252,7 +251,7 @@ class Measurement(object):
 			if self.multiprocessing:
 				res = apm.map(tasks,count_offset= (yield_every*i if yield_every is not None else None),count_total=len(output),start_time=start_time )
 			else:
-				res = [ (indicies,self.measure(*args,callback=callback,**kwargs)) for indicies,args,kwargs in tasks] # TODO: neaten legacy mode callback
+				res = [ (indicies,self.measure(*args,callback=callback,identifier=indicies,**kwargs)) for indicies,args,kwargs in tasks] # TODO: neaten legacy mode callback
 			for indicies,value in res:
 				self._iterate_results_add(resultsObj=results,result=value,indicies=indicies)
 			
@@ -348,6 +347,8 @@ class IteratorCallback(IntegratorCallback):
 		self.counts = counts
 		self.count = np.prod(counts)
 		self._progress = -1
+
+		self.last_identifier = None
 	#
 	# Trigger start
 	def onStart(self):
@@ -356,29 +357,31 @@ class IteratorCallback(IntegratorCallback):
 	def getCompleted(self):
 		completed = 0
 		for i,level_info in enumerate(self.levels_info):
-			completed += (level_info['iteration']-1)*np.prod(self.counts[i+1:])
+			completed += (self.last_identifier[i])*np.prod(self.counts[i+1:])
 		return completed
 	
 	def getProgress(self,progress):
 		return (float(self.getCompleted())+progress)/self.count
 	#
 	# Receives a float value in [0,1].
-	def onProgress(self, progress):
+	def onProgress(self, progress, identifier=None):
+		self.last_identifier = identifier
+
 		if round(progress*100.,0) > self._progress+5 or progress < self._progress:
 			self._progress = round(progress*100.,0)
 			sys.stderr.write("\r %3d%% | " % (100.*self.getProgress(progress)) )
-			for level_info in self.levels_info:
+			for i,level_info in enumerate(self.levels_info):
 				sys.stderr.write("%s: "%level_info["name"])
-				sys.stderr.write( coloured('%d of %d' % (level_info['iteration'],level_info['count']),"BLUE",True) )
+				sys.stderr.write( coloured('%d of %d' % (identifier[i]+1,level_info['count']),"BLUE",True) )
 				sys.stderr.write(" | ")
 	
 	#
 	# Called when function is complete.
-	# Level = 0 -> OKAY
-	# Level = 1 -> WARN
-	# Level = 2 -> ERROR
+	# status = 0 -> OKAY
+	# status = 1 -> WARN
+	# status = 2 -> ERROR
 	# Status = string message
-	def onComplete(self,message=None,level=0):
+	def onComplete(self,identifier=None,message=None,status=0):
 		if self.getCompleted() == self.count:
 			print
 

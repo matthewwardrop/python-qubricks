@@ -20,7 +20,7 @@ class IntegratorCallback(object):
 	
 	#
 	# Receives a float value in [0,1].
-	def onProgress(self, progress):
+	def onProgress(self, progress, identifier=None):
 		pass
 	
 	#
@@ -29,7 +29,7 @@ class IntegratorCallback(object):
 	# Level = 1 -> WARN
 	# Level = 2 -> ERROR
 	# Status = string message
-	def onComplete(self,message=None,level=0):
+	def onComplete(self,identifier=None,message=None,status=0):
 		pass
 
 # Try to use the full implementation of progress bar
@@ -44,13 +44,13 @@ try:
 			self.pb.start()
 			self._progress = 0
 	
-		def onProgress(self, progress):
+		def onProgress(self, progress, identifier=None):
 			progress *= 100
 			if (progress > self._progress):
 				self._progress = math.ceil(progress)
 				self.pb.update(min(100,progress))
 	
-		def onComplete(self,message=None,level=0):
+		def onComplete(self,identifier=None,message=None,status=0):
 			self.pb.finish()
 except:
 	class ProgressBarCallback(IntegratorCallback):
@@ -58,13 +58,13 @@ except:
 		def onStart(self):
 			self._progress = 0
 		
-		def onProgress(self,progress):
+		def onProgress(self,progress, identifier=None):
 			progress *= 100
 			#if (progress > self._progress):
 			self._progress = math.ceil(progress)
 			sys.stderr.write( "\r%3d%%" % min(100,progress) )
 		
-		def onComplete(self,message=None,level=0):
+		def onComplete(self,identifier=None,message=None,status=0):
 			print "\n"
 			if message:
 				print "Level %d"%level, message
@@ -80,7 +80,10 @@ class Progress(object):
 class Integrator(object):
 	__metaclass__ = ABCMeta
 	
-	def __init__(self,initial=None,t_offset=0,operators=None,parameters=None,op_params={},error_rel=1e-8,error_abs=1e-8,time_ops={},callback=None,callback_fallback=True,**kwargs):
+	def __init__(self,identifier=None,initial=None,t_offset=0,operators=None,parameters=None,op_params={},error_rel=1e-8,error_abs=1e-8,time_ops={},callback=None,callback_fallback=True,**kwargs):
+		# Set the identifier for this integrator instance
+		self.identifier = identifier
+
 		# Set up initial conditions
 		self.set_initial(initial,t_offset)
 		
@@ -318,7 +321,7 @@ class Integrator(object):
 			# Register progress
 			try:
 				current_progress = (t/progress.max_time+float(progress.run))/float(progress.runs)
-				progress.callback.onProgress(current_progress)
+				progress.callback.onProgress(current_progress, identifier=self.identifier)
 			except Exception, e:
 				print "Error updating progress.",e
 			
@@ -351,7 +354,7 @@ class Integrator(object):
 		# since we use sympy objects, potentially with cache enabled, we should clear it lest it build up
 		sympy_clear_cache()
 
-		callback.onComplete()
+		callback.onComplete(identifier=self.identifier)
 		
 
 		### Generate results for user
