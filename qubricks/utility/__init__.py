@@ -1,7 +1,8 @@
 from tools import ModelAnalysis
+import numpy as np
 
 import sympy
-def getFreeSymbolCoefficients(expr):
+def getLinearlyIndependentCoeffs(expr):
     def getCoefficient(e):
         return e.as_independent(*e.free_symbols, as_Add=False)
     if type(expr) == sympy.Add:
@@ -16,4 +17,10 @@ def dot(*args):
     a = args[0]
     for i in xrange(1,len(args)):
         a = a.dot(args[i])
+    return a
+
+def tensor(*args):
+    a = args[0]
+    for i in xrange(1,len(args)):
+        a = np.kron(a,args[i])
     return a
