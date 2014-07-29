@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='qubricks',
-      version='0.8',
+      version='0.9',
       description='A library to assist in the rapid prototyping and simulation of quantum systems.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
@@ -32,5 +32,5 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
-	
+
      )

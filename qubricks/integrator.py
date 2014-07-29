@@ -166,7 +166,7 @@ class Integrator(object):
 		
 		operators = []
 		for operator in self._operators:
-			operators.append( operator.restrict(*indicies) )
+			operators.append( operator.restrict(*indicies).collapse('t',**self.get_op_params()) )
 
 		return operators
 	

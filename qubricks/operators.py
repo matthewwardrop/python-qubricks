@@ -209,7 +209,7 @@ class Operator(object):
 
 		for key, component in self.components.items():
 			component = np.array(component)
-			if key is None or not (self.p.is_constant(key, **params) and self.p(key, **params) == 0):
+			if key is None or not (self.p.is_resolvable(key, **params) and self.p(key, **params) == 0):
 				for index in indicies:
 					new.update(np.where(np.logical_or(component[:, index] != 0 , component[index, :] != 0))[0].tolist())
 
@@ -372,6 +372,39 @@ class Operator(object):
 						components[key][i, j] += coefficient
 
 		return cls(components, parameters=parameters, basis=basis, exact=exact)
+	
+	def collapse(self,*wrt,**params):
+		'''
+		Collapses and simplifies an Operator object on the basis that certain parameters are going
+		to be fixed and non-varying. As many parameters as possible are collapsed into the constant component
+		of the operator. All other entries are simplified as much as possible, and then returned in a new Operator
+		object.
+		'''
+		
+		components = {}
+		
+		def add_comp(key,contrib):
+			if key not in components:
+				components[key] = np.zeros(self.shape,dtype='complex')
+			components[key] += contrib
+		
+		for component,form in self.components.items():
+			if component is None:
+				add_comp(None,form)
+			else:
+				for (coeff,indet) in getLinearlyIndependentCoeffs(sympy.S(component)):
+					if self.p.is_constant(str(indet),*wrt,**params):
+						add_comp(None,coeff*self.p(indet,**params)*form)
+					else:
+						subs = {}
+						for s in indet.free_symbols:
+							if self.p.is_constant(str(s),*wrt,**params):
+								subs[s] = self.p(str(s),**params)
+						
+						coeff2,indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
+						add_comp(str(indet2),coeff*coeff2*form)
+		
+		return self._new(components)
 
 class OrthogonalOperator(Operator):
 
@@ -543,6 +576,15 @@ class StateOperator(object):
 		StateOperator.
 		'''
 		raise NotImplementedError("StateOperator.connected is not implemented.")
+	
+	def collapse(self,*wrt,**params):
+		'''
+		Collapses and simplifies a StateOperator object on the basis that certain parameters are going
+		to be fixed and non-varying. As many parameters as possible are collapsed into the constant component
+		of the operator. All other entries are simplified as much as possible, and then returned in a new Operator
+		object. This method is not required, as it is used only for optimisation purposes.
+		'''
+		return self
 
 	@abstractproperty
 	def for_state(self):
@@ -627,6 +669,9 @@ class DummyOperator(StateOperator):
 	def connected(self, *indicies, **params):
 		return set(indicies)
 
+	def collapse(self, *wrt, **params):
+		return self
+
 	@property
 	def for_state(self):
 		return False
@@ -658,6 +703,9 @@ class SchrodingerOperator(StateOperator):
 
 	def connected(self, *indicies, **params):
 		return self.H.connected(*indicies, **params)
+	
+	def collapse(self, *wrt, **params):
+		return SchrodingerOperator(self.p, H=self.H.collapse(*wrt,**params))
 
 	@property
 	def for_state(self):
@@ -693,6 +741,9 @@ class LindbladOperator(StateOperator):
 
 	def connected(self, *indicies, **params):
 		return self.operator.connected(*indicies, **params)
+	
+	def collapse(self, *wrt, **params):
+		return LindbladOperator(self.p, coefficient=self.coefficient, operator=self.operator.collapse(*wrt,**params))
 
 	@property
 	def for_state(self):
