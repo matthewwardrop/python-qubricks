@@ -372,38 +372,39 @@ class Operator(object):
 						components[key][i, j] += coefficient
 
 		return cls(components, parameters=parameters, basis=basis, exact=exact)
-	
+
 	def collapse(self,*wrt,**params):
 		'''
 		Collapses and simplifies an Operator object on the basis that certain parameters are going
 		to be fixed and non-varying. As many parameters as possible are collapsed into the constant component
 		of the operator. All other entries are simplified as much as possible, and then returned in a new Operator
-		object.
+		object. If no parameters are specified, then only the simplification is performed. Note that to
+		collapse all components into a numerical form, simply call this operator.
 		'''
-		
 		components = {}
-		
+
 		def add_comp(key,contrib):
 			if key not in components:
 				components[key] = np.zeros(self.shape,dtype='complex')
 			components[key] += contrib
-		
+
 		for component,form in self.components.items():
 			if component is None:
 				add_comp(None,form)
 			else:
 				for (coeff,indet) in getLinearlyIndependentCoeffs(sympy.S(component)):
-					if self.p.is_constant(str(indet),*wrt,**params):
+					if len(wrt) > 0 and self.p.is_constant(str(indet),*wrt,**params):
 						add_comp(None,coeff*self.p(indet,**params)*form)
 					else:
 						subs = {}
-						for s in indet.free_symbols:
-							if self.p.is_constant(str(s),*wrt,**params):
-								subs[s] = self.p(str(s),**params)
-						
+						if len(wrt) > 0:
+							for s in indet.free_symbols:
+								if self.p.is_constant(str(s),*wrt,**params):
+									subs[s] = self.p(str(s),**params)
+
 						coeff2,indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
 						add_comp(str(indet2),coeff*coeff2*form)
-		
+
 		return self._new(components)
 
 class OrthogonalOperator(Operator):
@@ -576,7 +577,7 @@ class StateOperator(object):
 		StateOperator.
 		'''
 		raise NotImplementedError("StateOperator.connected is not implemented.")
-	
+
 	def collapse(self,*wrt,**params):
 		'''
 		Collapses and simplifies a StateOperator object on the basis that certain parameters are going
@@ -703,7 +704,7 @@ class SchrodingerOperator(StateOperator):
 
 	def connected(self, *indicies, **params):
 		return self.H.connected(*indicies, **params)
-	
+
 	def collapse(self, *wrt, **params):
 		return SchrodingerOperator(self.p, H=self.H.collapse(*wrt,**params))
 
@@ -741,7 +742,7 @@ class LindbladOperator(StateOperator):
 
 	def connected(self, *indicies, **params):
 		return self.operator.connected(*indicies, **params)
-	
+
 	def collapse(self, *wrt, **params):
 		return LindbladOperator(self.p, coefficient=self.coefficient, operator=self.operator.collapse(*wrt,**params))
 
