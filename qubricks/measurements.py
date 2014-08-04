@@ -165,6 +165,12 @@ class Measurement(object):
 					raise ValueError, "Parameter ranges are not consistent in count: %s" % pam_ranges[key]
 			counts.append( count )
 		
+		dtype = []
+		for i in xrange(len(ranges)):
+			for var in ranges[i]:
+				dtype.append( (var,float) )
+		ranges_eval = np.zeros(counts,dtype=dtype)
+		
 		levels_info = [None]*len(ranges)
 
 		if self.multiprocessing:
@@ -207,9 +213,22 @@ class Measurement(object):
 			for i in xrange(counts[level]):
 				level_info['iteration'] = i + 1
 				
+				# Generate slice corresponding to this level # TODO: clean this up
+				s = None
+				for i2 in xrange(len(ranges)):
+					if i2 != level:
+						a = (slice(None),)
+					else:
+						a = (i,)
+					if s is None:
+						s = a
+					else: 
+						s += a
+				
 				# Update parameters
 				for param, pam_value in pam_values.items():
 					params[param] = pam_value[i]
+					ranges_eval[param][s] = pam_value[i]
 				
 				if level < len(ranges) - 1:
 					# Recurse problem
@@ -255,7 +274,7 @@ class Measurement(object):
 			for indicies,value in res:
 				self._iterate_results_add(resultsObj=results,result=value,indicies=indicies)
 			
-			yield (ranges,results)
+			yield (ranges,ranges_eval,results)
 	
 	def iterate(self,*args,**kwargs):
 		'''
@@ -273,18 +292,23 @@ class Measurement(object):
 		Measurement.iterate method.
 		'''
 		
-		def save(ranges,results):
+		def save(ranges,ranges_eval,results):
 			s = shelve.open(path)
 			s['ranges'] = ranges
+			s['ranges_eval'] = ranges_eval
 			s['results'] = results
 			s.close()
 		
 		def get():
 			s = shelve.open(path)
 			ranges = s['ranges']
+			try:
+				ranges_eval = s['ranges_eval']
+			except:
+				ranges_eval = None
 			results = s['results']
 			s.close()
-			return ranges,results
+			return ranges,ranges_eval,results
 
 		if not os.path.exists(os.path.dirname(path)):
 			os.makedirs(os.path.dirname(path))
@@ -292,10 +316,10 @@ class Measurement(object):
 			raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
 		
 		if os.path.isfile(path):
-			ranges,results = get()
+			ranges,ranges_eval,results = get()
 			
 			if len(np.where(np.isnan(results.view('float')))[0]) == 0:
-				return ranges,results
+				return ranges,ranges_eval,results
 				
 			def continue_mask(indicies, ranges=None, params={}): # Todo: explore other mask options
 				return np.any(np.isnan(results[indicies].view('float')))
@@ -310,8 +334,8 @@ class Measurement(object):
 		else:
 			results = None
 	
-		for ranges,results in self.iterate_yielder(*args,results=results,**kwargs):
-			save(ranges,results)
+		for ranges,ranges_eval,results in self.iterate_yielder(*args,results=results,**kwargs):
+			save(ranges,ranges_eval,results)
 
 		return ranges,results
 
