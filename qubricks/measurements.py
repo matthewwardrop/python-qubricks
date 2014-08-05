@@ -337,7 +337,7 @@ class Measurement(object):
 		for ranges,ranges_eval,results in self.iterate_yielder(*args,results=results,**kwargs):
 			save(ranges,ranges_eval,results)
 
-		return ranges,results
+		return ranges,ranges_eval,results
 
 
 class Measurements(object):
