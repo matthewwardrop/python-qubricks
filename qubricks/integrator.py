@@ -7,7 +7,7 @@ import time as proftime
 from sympy.core.cache import clear_cache as sympy_clear_cache
 import warnings
 
-from .operators import StateOperator
+from .operators import StateOperator, Operator
 
 #TODO: Document this function.
 
@@ -239,6 +239,8 @@ class Integrator(object):
 		return presults
 
 	def __state_prepare(self, y_0):
+		if isinstance(y_0,Operator):
+			y_0 = y_0(t=0,**self.get_op_params())
 		nz = np.nonzero(y_0)
 		indicies = set()
 		for n in nz:

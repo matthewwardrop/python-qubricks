@@ -63,14 +63,48 @@ class Operator(object):
 		if type(components) == dict:
 			for pam, component in components.items():  # Assume components of type numpy.ndarray or sympy.Matrix
 				if self.__shape is None:
-					self.__shape = component.shape
+					self.__shape = np.array(component).shape
 				elif component.shape != self.__shape:
 					raise ValueError, "Invalid shape."
-				self.components[pam] = component
+				self.components[pam] = np.array(component)
+		elif isinstance(components,(sympy.MatrixBase,sympy.Expr)):
+			self.components = self.__symbolic_components(components)
+		elif isinstance(components,(list,np.ndarray)):
+			self.components = self.__array_components(components)
 		else:
-			if self.__shape is None:
-				self.__shape = components.shape
-			self.components[None] = components
+			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(components))
+	
+	def __array_components(self,components):
+		# TODO: Check for symbolic nested components?
+		if self.__shape is None:
+			self.__shape = np.array(components).shape
+		self.components[None] = np.array(components)
+		return self.components
+	
+	def __symbolic_components(self,m):
+		components = {}
+		if isinstance(m,sympy.MatrixBase):
+			for i in xrange(m.shape[0]):
+				for j in xrange(m.shape[1]):
+					e = m[i, j]
+	
+					if e.is_Number:
+						if None not in components:
+							components[None] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape,dtype=complex)
+						components[None][i, j] += e
+					else:
+						for coefficient, symbol in getLinearlyIndependentCoeffs(e):
+							key = str(symbol)
+	
+							if key not in components:
+								components[key] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape,dtype=complex)
+	
+							components[key][i, j] += coefficient
+		elif isinstance(m,sympy.Expr):
+			components[m] = np.array([1])
+		else:
+			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(m))
+		return components
 
 	def __call__(self, **params):
 		'''
@@ -276,10 +310,10 @@ class Operator(object):
 	########## Define Basic Arithmetic ################################################
 
 	def _new(self, components={}):
-		return Operator(components, parameters=self.__p)
+		return Operator(components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
 
 	def _copy(self):
-		return Operator(self.components, parameters=self.__p)
+		return Operator(self.components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
 
 	def __add__(self, other):
 		O = self._copy()
@@ -348,30 +382,8 @@ class Operator(object):
 		symbolic inversion, then simply call the Operator object and take a numerical inverse using
 		numpy.
 		'''
-		M = self.symbolic().pinv()
-		return Operator.from_symbolic(M,parameters=self.__p,basis=self.__basis,exact=self.__exact)
-
-	@classmethod
-	def from_symbolic(cls, m, parameters=None, basis=None, exact=False):
-		components = {}
-		for i in xrange(m.shape[0]):
-			for j in xrange(m.shape[1]):
-				e = m[i, j]
-
-				if e.is_Number:
-					if None not in components:
-						components[None] = sympy.zeros(m.shape) if exact else np.zeros(m.shape,dtype=complex)
-					components[None][i, j] += e
-				else:
-					for coefficient, symbol in getLinearlyIndependentCoeffs(e):
-						key = str(symbol)
-
-						if key not in components:
-							components[key] = sympy.zeros(m.shape) if exact else np.zeros(m.shape,dtype=complex)
-
-						components[key][i, j] += coefficient
-
-		return cls(components, parameters=parameters, basis=basis, exact=exact)
+		return self._new(self.symbolic().pinv())
+		
 
 	def collapse(self,*wrt,**params):
 		'''
@@ -405,6 +417,13 @@ class Operator(object):
 						coeff2,indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
 						add_comp(str(indet2),coeff*coeff2*form)
 
+		return self._new(components)
+	
+	# Support Indexing
+	def __getitem__(self,index):
+		components = {}
+		for arg,form in self.components.items():
+			components[arg] = form[index]
 		return self._new(components)
 
 class OrthogonalOperator(Operator):

@@ -183,11 +183,16 @@ class QuantumSystem(object):
 		Add a named state, provided in some basis `basis`.
 		'''
 		# TODO: check dimensions
-		state = np.array(state,dtype=complex) # Force internally stored named states to be complex arrays
-		state /= np.linalg.norm(state)
+		if not isinstance(state,Operator):
+			state = np.array(state,dtype=complex) # Force internally stored named states to be complex arrays
+		
 		if len(state.shape) > 1:
+			if isinstance(state,np.ndarray):
+				state /= float(np.sum(np.diag(state)))
 			self.__named_ensembles[name] = self.basis(basis).transform(state, params=params, inverse=True) if basis is not None else state
 		else:
+			if isinstance(state,np.ndarray):
+				state /= np.linalg.norm(state)
 			self.__named_states[name] = self.basis(basis).transform(state, params=params, inverse=True) if basis is not None else state
 	
 	def add_subspace(self, name, subspace, basis=None, params={}):
@@ -198,7 +203,7 @@ class QuantumSystem(object):
 		# TODO: Check dimensions
 		fstates = []
 		for state in subspace:
-			fstates.append(self.state(state, input=basis, params=params))
+			fstates.append(self.state(state, input=basis, params=params,evaluate=False))
 		self.__named_subspaces[name] = fstates
 	
 	def Operator(self, components, basis=None):
@@ -270,7 +275,7 @@ class QuantumSystem(object):
 		'''
 		return sorted(self.__named_states.keys())
 
-	def state(self, state, input=None, output=None, threshold=False, params={}):
+	def state(self, state, input=None, output=None, threshold=False, evaluate=True, params={}):
 		'''
 		Returns a state vector (numpy array) that is associated with the input state. This 
 		method allows for basis conversions of states, with `input` being the name of the basis
@@ -280,12 +285,18 @@ class QuantumSystem(object):
 		to determine the parameters at which the bases are evaluated.
 		'''
 		if isinstance(state, str):
+			state = self.__named_states[state]
+			if isinstance(state,Operator) and evaluate:
+				state = state(**params)
 			if output is None:
-				return self.__named_states[state]
+				return state
 			else:
-				return self.basis(output).transform(self.__named_states[state], threshold=threshold, params=params)
+				return self.basis(output).transform(state, threshold=threshold, params=params)
 		else:
-			state = np.array(state)
+			if not isinstance(state,Operator):
+				state = np.array(state)
+			elif evaluate:
+				state = state(**params)
 			if input is None and output is None:
 				return state
 			elif input is None:
@@ -300,7 +311,7 @@ class QuantumSystem(object):
 		Converts a string object to state vector, as interpreted by the Basis.state_fromString method. 
 		As with QuantumSystem.state, basis conversions can also be done.
 		'''
-		return self.state(self.basis(input).state_fromString(state, params), input=input, output=output, threshold=threshold, params=params)
+		return self.state(self.basis(input).state_fromString(state, params), input=input, output=output, threshold=threshold, params=params, evaluate=True)
 
 	def state_toString(self, state, input=None, output=None, threshold=False, params={}):
 		'''
@@ -308,7 +319,7 @@ class QuantumSystem(object):
 		Basis.state_toString method. As with QuantumSystem.state, basis conversions can also be
 		done.
 		'''
-		return self.basis(output).state_toString(self.state(state, input=input, output=output, threshold=threshold, params=params), params)
+		return self.basis(output).state_toString(self.state(state, input=input, output=output, threshold=threshold, params=params, evaluate=True), params)
 	
 	@property
 	def ensembles(self):
@@ -317,7 +328,7 @@ class QuantumSystem(object):
 		'''
 		return sorted(self.__named_ensembles.keys())
 
-	def ensemble(self, state, input=None, output=None, threshold=False, params={}):
+	def ensemble(self, state, input=None, output=None, threshold=False, evaluate=True, params={}):
 		'''
 		Returns a state matrix (numpy array) that is associated with the input state. This 
 		method allows for basis conversions of states, with `input` being the name of the basis
@@ -330,12 +341,12 @@ class QuantumSystem(object):
 		if isinstance(state, str):
 			if state in self.__named_ensembles:
 				state = self.__named_ensembles[state]
-				return self.state(state, output=output, threshold=threshold, params=params)
+				return self.state(state, output=output, threshold=threshold, params=params, evaluate=evaluate)
 			elif state in self.__named_states:
 				state = self.__named_states[state]
 			else:
 				raise KeyError("No such state '%s' known." % state)
-		state = self.state(state, input=input, output=output, threshold=threshold, params=params)
+		state = self.state(state, input=input, output=output, threshold=threshold, params=params, evaluate=evaluate)
 		if len(state.shape) == 1:
 			return np.outer(np.array(state).conjugate(), state)
 		return state
@@ -347,7 +358,7 @@ class QuantumSystem(object):
 		'''
 		return sorted(self.__named_subspaces.keys())
 
-	def subspace(self, subspace, input=None, output=None, threshold=False, params={}):
+	def subspace(self, subspace, input=None, output=None, threshold=False, evaluate=True, params={}):
 		'''
 		Returns a list of basis states that span the subspace. Basis conversions are also possible; as
 		described in QuantumSystem.state. `subspace` can be a named subspace, or a list of states.
@@ -356,18 +367,21 @@ class QuantumSystem(object):
 		if isinstance(subspace, str):
 			subspace = self.__named_subspaces[subspace]
 			for state in subspace:
-				states.append(self.state(state, output=output, threshold=threshold, params=params))
+				states.append(self.state(state, output=output, threshold=threshold, params=params, evaluate=evaluate))
 		else:
 			for state in subspace:
-				states.append(self.state(state, input=input, output=output, threshold=threshold, params=params))
+				states.append(self.state(state, input=input, output=output, threshold=threshold, params=params, evaluate=evaluate))
 		return states
 	
-	def subspace_projector(self, subspace, input=None, output=None, invert=False, threshold=False, params={}):
+	def subspace_projector(self, subspace, input=None, output=None, invert=False, threshold=False, evaluate=True, params={}):
 		'''
 		Returns a projector onto a subspace. Subspace can be any valid input into QuantumSystem.subspace; including
 		any output of that function. Basis conversions are possible as for QuantumSystem.state.
 		'''
-		states = self.subspace(subspace, input=input, output=output, threshold=threshold, params=params)
+		if not evaluate:
+			raise ValueError("Symbolic subspace projector not yet implemented.")
+		
+		states = self.subspace(subspace, input=input, output=output, threshold=threshold, params=params, evaluate=evaluate)
 		
 		P = 0
 		for state in states:
