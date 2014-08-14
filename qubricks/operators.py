@@ -54,32 +54,43 @@ class Operator(object):
 	@property
 	def exact(self):
 		return self.__exact
+	@exact.setter
+	def exact(self, value):
+		self.__exact = value
 
+	
+	def __add_component(self,pam,component):  # Assume components of type numpy.ndarray or sympy.Matrix
+		if self.__shape is None:
+			self.__shape = np.array(component).shape
+		elif component.shape != self.__shape:
+			raise ValueError, "Invalid shape."
+		if pam in self.components:
+			self.components[pam] += component
+		else:
+			self.components[pam] = component
+	
 	def __process_components(self, components):
 		'''
 		Import the specified components, verifying that each component has the same shape.
 		'''
 		# TODO: Add support for second quantised forms
 		if type(components) == dict:
-			for pam, component in components.items():  # Assume components of type numpy.ndarray or sympy.Matrix
-				if self.__shape is None:
-					self.__shape = np.array(component).shape
-				elif component.shape != self.__shape:
-					raise ValueError, "Invalid shape."
-				self.components[pam] = np.array(component)
+			pass
 		elif isinstance(components,(sympy.MatrixBase,sympy.Expr)):
-			self.components = self.__symbolic_components(components)
+			components = self.__symbolic_components(components)
 		elif isinstance(components,(list,np.ndarray)):
-			self.components = self.__array_components(components)
+			components = self.__array_components(components)
 		else:
 			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(components))
+		
+		for pam, component in components.items():
+			self.__add_component(pam, component)
 	
-	def __array_components(self,components):
+	def __array_components(self,array):
 		# TODO: Check for symbolic nested components?
-		if self.__shape is None:
-			self.__shape = np.array(components).shape
-		self.components[None] = np.array(components)
-		return self.components
+		components = {}
+		components[None] = np.array(array)
+		return components
 	
 	def __symbolic_components(self,m):
 		components = {}
@@ -243,7 +254,7 @@ class Operator(object):
 
 		for key, component in self.components.items():
 			component = np.array(component)
-			if key is None or not (self.p.is_resolvable(key, **params) and self.p(key, **params) == 0):
+			if key is None or not (not self.exact and self.p.is_resolvable(key, **params) and self.p(key, **params) == 0):
 				for index in indicies:
 					new.update(np.where(np.logical_or(component[:, index] != 0 , component[index, :] != 0))[0].tolist())
 
@@ -314,17 +325,22 @@ class Operator(object):
 
 	def _copy(self):
 		return Operator(self.components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
+	
+	def __zero(self,shape=None):
+		if shape is None:
+			shape = self.shape
+		return sympy.zeros(shape) if self.exact else np.zeros(shape)
 
 	def __add__(self, other):
 		O = self._copy()
 		for pam, component in other.components.items():
-			O.components[pam] = O.components.get(pam, 0) + component
+			O.components[pam] = O.components.get(pam, self.__zero()) + component
 		return O
 
 	def __sub__(self, other):
 		O = self._copy()
 		for pam, component in other.components.items():
-			O.components[pam] = O.components.get(pam, 0) - component
+			O.components[pam] = O.components.get(pam, self.__zero()) - component
 		return O
 
 	def __dot(self, one, two):
@@ -343,7 +359,7 @@ class Operator(object):
 					if mpam not in components:
 						if type(r) != np.ndarray or self.exact or other.exact:
 							components[mpam] = sympy.zeros(self.shape)
-					components[mpam] = components.get(mpam,0) + r
+					components[mpam] = components.get(mpam,self.__zero()) + r
 		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
 			for pam, component in self.components.items():
 				components[pam] = self.__dot(component, other)
@@ -372,7 +388,7 @@ class Operator(object):
 			components[pam] = spla.block_diag(self.__np(component), sp.zeros(other.shape))
 
 		for pam, component in other.components.items():
-			components[pam] = components.get(pam, 0) + spla.block_diag(sp.zeros(self.shape), self.__np(component))
+			components[pam] = components.get(pam, self.__zero(self.shape + component.shape)) + spla.block_diag(sp.zeros(self.shape), self.__np(component))
 
 		return self._new(components)
 

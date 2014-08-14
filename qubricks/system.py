@@ -490,6 +490,7 @@ class QuantumSystem(object):
 		which derivative operators should be used in this integration. `params` is a list of parameter overrides which will be
 		used unless further overridden, as in Measurement.iterate . All other arguments are passed onto the Integrator object.
 		'''
+		
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 		
 		use_ensemble = self.use_ensemble(ops) or True in [len(np.array(s).shape) == 2 for s in initial]
@@ -504,9 +505,9 @@ class QuantumSystem(object):
 		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, **args)
 		
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
-	def integrate(self, t, psi0s, **args):
+	def integrate(self, t, psi0s, **kwargs):
 		'''
 		This is a shorthand notation for initialising the Integrator (as in QuantumSystem.get_integrator); and then running the 
 		Integrator object. The value returned from the integration routine is returned here.
 		'''
-		return self.get_integrator(initial=psi0s, **args).start(t)
+		return self.get_integrator(initial=psi0s, **kwargs).start(t)

@@ -260,7 +260,8 @@ class Integrator(object):
 	def __get_connected(self,*indicies):
 		new = set(indicies)
 		
-		for operator in self.get_operators():
+		operators = self.get_operators()
+		for operator in operators:
 				new.update( operator.connected(*indicies,**self.get_op_params()) )
 		
 		if len( new.difference(indicies) ) != 0:
