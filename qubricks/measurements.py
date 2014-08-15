@@ -294,19 +294,19 @@ class Measurement(object):
 		
 		def save(ranges,ranges_eval,results):
 			s = shelve.open(path)
-			s['ranges'] = ranges
+			try:
+				s['ranges'] = ranges
+			except TypeError:
+				pass
 			s['ranges_eval'] = ranges_eval
 			s['results'] = results
 			s.close()
 		
 		def get():
 			s = shelve.open(path)
-			ranges = s['ranges']
-			try:
-				ranges_eval = s['ranges_eval']
-			except:
-				ranges_eval = None
-			results = s['results']
+			ranges = s.get('ranges')
+			ranges_eval = s.get('ranges_eval')
+			results = s.get('results')
 			s.close()
 			return ranges,ranges_eval,results
 
