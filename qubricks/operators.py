@@ -60,6 +60,8 @@ class Operator(object):
 
 	
 	def __add_component(self,pam,component):  # Assume components of type numpy.ndarray or sympy.Matrix
+		if not isinstance(component,(np.ndarray,sympy.MatrixBase)):
+			component = np.array(component) if self.exact else sympy.Matrix(component)
 		if self.__shape is None:
 			self.__shape = np.array(component).shape
 		elif component.shape != self.__shape:
@@ -245,7 +247,9 @@ class Operator(object):
 		'''
 		Operator.connected returns a list of indicies that represents the rows/columns that mix
 		with the specified indicies if this operator were to be multiplied by itself. This method
-		requires that the Operator object be square.
+		requires that the Operator object be square. If Operator.exact is True, then this will
+		return connectedness based upon symbolic forms; otherwise, connectedness will be 
+		reported based upon the numerical values provided.
 		'''
 		if len(self.shape) != 2 or self.shape[0] != self.shape[1]:
 			raise ValueError("Operator not square. Connectedness only works when Operators are square. %s"%self.components)
@@ -350,18 +354,21 @@ class Operator(object):
 
 	def __mul__(self, other):
 		components = {}
+		shape = None
 		if isinstance(other, Operator):
 			for pam, component in self.components.items():
 				for pam_other, component_other in other.components.items():
 					mpam = pam if pam_other is None else (pam_other if pam is None else '*'.join((pam, pam_other)))
 					mpam = str(sympy.S(mpam)) if mpam is not None else None
 					r = self.__dot(component, component_other)
+					if shape is None:
+						shape = r.shape
 					if mpam not in components:
 						if type(r) != np.ndarray or self.exact or other.exact:
-							components[mpam] = sympy.zeros(self.shape)
-					components[mpam] = components.get(mpam,self.__zero()) + r
+							components[mpam] = sympy.zeros(shape)
+					components[mpam] = components.get(mpam,self.__zero(shape)) + r
 		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
-			for pam, component in self.components.items():
+			for pam, component in self.components.items(): # TODO: convert symbolic matrix to Operator and do normal multiplication
 				components[pam] = self.__dot(component, other)
 
 		else:

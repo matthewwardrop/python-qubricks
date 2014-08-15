@@ -385,6 +385,7 @@ class QuantumSystem(object):
 		
 		P = 0
 		for state in states:
+			
 			state = np.array(state) / np.linalg.norm(state)
 			state.shape = (len(state), 1)
 			
