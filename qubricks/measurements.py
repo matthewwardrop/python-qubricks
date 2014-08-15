@@ -216,14 +216,16 @@ class Measurement(object):
 				# Generate slice corresponding to this level # TODO: clean this up
 				s = None
 				for i2 in xrange(len(ranges)):
-					if i2 != level:
-						a = (slice(None),)
+					if i2 < level:
+						a = levels_info[i2]['iteration'] - 1
+					elif i2 > level:
+						a = slice(None)
 					else:
-						a = (i,)
+						a = i
 					if s is None:
-						s = a
+						s = (a,)
 					else: 
-						s += a
+						s += (a,)
 				
 				# Update parameters
 				for param, pam_value in pam_values.items():
