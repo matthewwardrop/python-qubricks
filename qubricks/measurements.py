@@ -5,6 +5,7 @@ import os
 import re
 import shelve
 import sys
+import types
 import datetime
 
 import numpy as np
@@ -151,7 +152,9 @@ class Measurement(object):
 				return len(pam_range)
 			if isinstance(pam_range,tuple):
 				assert len(pam_range) >= 3, "Tuple specification incorrect for %s: %s" % (param,pam_range)
-				return pam_range[2]
+				tparams = params.copy()
+				tparams[param] = pam_range
+				return len(self._system.p.range(param,**tparams))
 			raise ValueError("Unknown range format for %s: %s" % (param, pam_range))
 		
 		# Check to see if all parameters in this level have the same number of steps
@@ -287,26 +290,40 @@ class Measurement(object):
 		from collections import deque
 		return deque(self.iterate_yielder(*args, yield_every=None, **kwargs),maxlen=1).pop()
 
-	def iterate_to_file(self,path,*args,**kwargs):
+	def iterate_to_file(self,path,samplers={},*args,**kwargs):
 		'''
 		Measurement.iterate_to_file saves the results of the Measurement.iterate method
 		to a python shelve file at `path`; all other arguments are passed through to the
 		Measurement.iterate method.
 		'''
 		
+		def process_ranges(ranges,defunc=False):
+			ranges = copy.deepcopy(ranges)
+			for range in ranges:
+				for param,spec in range.items():
+					if defunc and type(spec[-1]) == types.FunctionType:
+						spec = list(spec)
+						spec[-1] = spec[-1].__name__
+						spec = tuple(spec)
+						range[param] = spec
+					if not defunc and len(spec) > 3 and type(spec[-1]) == str and spec[-1] in samplers:
+						spec = list(spec)
+						spec[-1] = samplers[spec[-1]]
+						spec = tuple(spec)
+						range[param] = spec
+			return ranges
+		
 		def save(ranges,ranges_eval,results):
 			s = shelve.open(path)
-			try:
-				s['ranges'] = ranges
-			except TypeError:
-				pass
+
+			s['ranges'] = process_ranges(ranges,defunc=True)
 			s['ranges_eval'] = ranges_eval
 			s['results'] = results
 			s.close()
 		
 		def get():
 			s = shelve.open(path)
-			ranges = s.get('ranges')
+			ranges = process_ranges(s.get('ranges'),defunc=False)
 			ranges_eval = s.get('ranges_eval')
 			results = s.get('results')
 			s.close()
