@@ -147,78 +147,54 @@ class Measurement(object):
 		if isinstance(ranges,dict):
 			ranges = [ranges]
 		
-		def range_length(param,pam_range):
-			if isinstance(pam_range,list):
-				return len(pam_range)
-			if isinstance(pam_range,tuple):
-				assert len(pam_range) >= 3, "Tuple specification incorrect for %s: %s" % (param,pam_range)
-				tparams = params.copy()
-				tparams[param] = pam_range
-				return len(self._system.p.range(param,**tparams))
-			raise ValueError("Unknown range format for %s: %s" % (param, pam_range))
-		
-		# Check to see if all parameters in this level have the same number of steps
-		counts = []
-		for pam_ranges in ranges:
-			count = None
-			for key in list(pam_ranges.keys()):
-				c = range_length(key,pam_ranges[key])
-				count = c if count is None else count
-				if c != count: 
-					raise ValueError, "Parameter ranges are not consistent in count: %s" % pam_ranges[key]
-			counts.append( count )
-		
-		dtype = []
-		for i in xrange(len(ranges)):
-			for var in ranges[i]:
-				dtype.append( (var,float) )
-		ranges_eval = np.zeros(counts,dtype=dtype)
-		
 		levels_info = [None]*len(ranges)
-
-		if self.multiprocessing:
-			from qubricks.utility.symmetric import AsyncParallelMap 
-			apm = AsyncParallelMap(self.measure,progress=True,nprocs=nprocs)
-			callback = None
-		else:
-			apm = None
-			callback = IteratorCallback(levels_info,counts)
 		
-		results_new = self._iterate_results_init(ranges=ranges,shape=tuple(counts),params=params,*args,**kwargs)
-		if results is None:
-			results = results_new
-		else:
-			if results.shape != results_new.shape:
-				raise ValueError("Invalid results given to continue. Shape %s does not agree with result dimensions %s" % (results.shape,results_new.shape))
-			if results.dtype != results_new.dtype:
-				raise ValueError("Invalid results given to continue. Type %s does not agree with result type %s" % (results.dtype,results_new.dtype))
-
-		def vary_pams(level=0,levels_info=[],output=[]):
+		def extend_ranges(ranges_eval,labels,size):
+			dtype_delta = [(label,float) for label in labels]
+			if ranges_eval is None:
+				ranges_eval = np.zeros(size,dtype=dtype_delta)
+			else:
+				final_shape = ranges_eval.shape + (size,)
+				ranges_eval = np.array(np.repeat(ranges_eval,size).reshape(final_shape),dtype=ranges_eval.dtype.descr + dtype_delta)
+			return ranges_eval
+				
+		
+		def vary_pams(level=0,levels_info=[],output=[],ranges_eval=None):
 			'''
 			This method generates a list of different parameter configurations
 			'''
-			level_info = {
-				'name': ",".join(ranges[level].keys()),
-				'count': counts[level],
-				'iteration': 0,
-			}
-			levels_info[level] = level_info
 			
 			pam_ranges = ranges[level]
 
 			## Interpret ranges
 			pam_values = {}
+			count = None
 			for param, pam_range in pam_ranges.items():
 				tparams = params.copy()
 				tparams[param] = pam_range
 				pam_values[param] = self._system.p.range(param,**tparams)
+				c = len(pam_values[param])
+				count = c if count is None else count
+				if c != count:
+					raise ValueError, "Parameter ranges for %s are not consistent in count: %s" % (param, pam_ranges)
+			
+			if ranges_eval is None or ranges_eval.ndim < level + 1:
+				ranges_eval = extend_ranges(ranges_eval, pam_ranges.keys(), count)
+				
+			
+			level_info = {
+				'name': ",".join(ranges[level].keys()),
+				'count': count,
+				'iteration': 0,
+			}
+			levels_info[level] = level_info
 
-			for i in xrange(counts[level]):
+			for i in xrange(count):
 				level_info['iteration'] = i + 1
 				
-				# Generate slice corresponding to this level # TODO: clean this up
+				# Generate slice corresponding to this level
 				s = None
-				for i2 in xrange(len(ranges)):
+				for i2 in xrange(ranges_eval.ndim):
 					if i2 < level:
 						a = levels_info[i2]['iteration'] - 1
 					elif i2 > level:
@@ -237,7 +213,7 @@ class Measurement(object):
 				
 				if level < len(ranges) - 1:
 					# Recurse problem
-					vary_pams(level=level+1,levels_info=levels_info,output=output)
+					ranges_eval,_ = vary_pams(level=level+1,levels_info=levels_info,output=output,ranges_eval=ranges_eval)
 				else:
 					iteration = tuple(x['iteration']-1 for x in levels_info)
 					if masks is not None and isinstance(masks,list):
@@ -259,9 +235,32 @@ class Measurement(object):
 							kwargs2
 						) )
 
-			return output
+			return ranges_eval, output
 		
-		output = vary_pams(levels_info=levels_info)
+		ranges_eval,output = vary_pams(levels_info=levels_info)
+
+		if self.multiprocessing:
+			from qubricks.utility.symmetric import AsyncParallelMap 
+			apm = AsyncParallelMap(self.measure,progress=True,nprocs=nprocs)
+			callback = None
+		else:
+			apm = None
+			callback = IteratorCallback(levels_info,ranges_eval.shape)
+		
+		results_new = self._iterate_results_init(ranges=ranges,shape=ranges_eval.shape,params=params,*args,**kwargs)
+		if results is None:
+			results = results_new
+		else:
+			if results.shape != results_new.shape:
+				raise ValueError("Invalid results given to continue. Shape %s does not agree with result dimensions %s" % (results.shape,results_new.shape))
+			if results.dtype != results_new.dtype:
+				raise ValueError("Invalid results given to continue. Type %s does not agree with result type %s" % (results.dtype,results_new.dtype))
+		
+		dtype = []
+		for i in xrange(len(ranges)):
+			for var in ranges[i]:
+				dtype.append( (var,float) )
+		ranges_eval = np.zeros(ranges_eval.shape,dtype=dtype)
 		
 		def splitlist(l,length=None):
 			if length is None:
@@ -298,6 +297,8 @@ class Measurement(object):
 		'''
 		
 		def process_ranges(ranges,defunc=False):
+			if ranges is None:
+				return ranges
 			ranges = copy.deepcopy(ranges)
 			for range in ranges:
 				for param,spec in range.items():
