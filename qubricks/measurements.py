@@ -256,12 +256,6 @@ class Measurement(object):
 			if results.dtype != results_new.dtype:
 				raise ValueError("Invalid results given to continue. Type %s does not agree with result type %s" % (results.dtype,results_new.dtype))
 		
-		dtype = []
-		for i in xrange(len(ranges)):
-			for var in ranges[i]:
-				dtype.append( (var,float) )
-		ranges_eval = np.zeros(ranges_eval.shape,dtype=dtype)
-		
 		def splitlist(l,length=None):
 			if length is None:
 				yield l
