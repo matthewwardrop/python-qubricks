@@ -43,6 +43,7 @@ class CustomSystem(QuantumSystem):
 		'''
 		raise NotImplementedError
 	
+	@property
 	def default_derivative_ops(self):
 		raise NotImplementedError
 	
