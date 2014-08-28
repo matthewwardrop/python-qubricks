@@ -324,7 +324,7 @@ class Measurement(object):
 			s.close()
 			return ranges,ranges_eval,results
 
-		if not os.path.exists(os.path.dirname(path)):
+		if os.path.dirname(path) is not "" and not os.path.exists(os.path.dirname(path)):
 			os.makedirs(os.path.dirname(path))
 		elif os.path.exists(os.path.dirname(path)) and os.path.isfile(os.path.dirname(path)):
 			raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
