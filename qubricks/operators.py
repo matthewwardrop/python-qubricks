@@ -160,6 +160,18 @@ class Operator(object):
 				else:
 					R += self.p(self.__optimise(pam), **params) * self.__np(component)
 			return R
+	
+	def apply(self, state, symbolic=False, left=True, params=None):
+		if symbolic:
+			return self.__assemble(symbolic=symbolic, params=params) * state
+		else:
+			R = np.zeros(state.shape, dtype=complex)
+			for pam, component in self.components.items():
+				if pam is None:
+					R += self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component))
+				else:
+					R += self.p(self.__optimise(pam), **params) * ( self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component)) )
+			return R
 
 	def __repr__(self):
 		return "<Operator with shape %s>" % (str(self.shape))
@@ -516,6 +528,24 @@ class OperatorSet(object):
 				raise ValueError("Invalid operator component: '%s'" % component)
 			cs.append(self.components[component])
 		return self.__sum(cs)
+	
+	def apply(self, state, symbolic=False, left=True, params=None, components=None):
+		
+		if components is None or len(components) == 0:
+			if self.defaults is not None:
+				components = self.defaults
+			else:
+				components = self.components.keys()
+		
+		rs = []
+		if len(components) == 0:
+			raise ValueError("Attempted to apply an empty Operator.")
+		for component in components:
+			if component not in self.components:
+				raise ValueError("Invalid operator component: '%s'" % component)
+			rs.append(self.components[component].apply(state, symbolic=symbolic, left=left, params=params))
+		return self.__sum(rs)
+		
 
 	def __sum(self, operators):
 		'''
@@ -733,10 +763,12 @@ class SchrodingerOperator(StateOperator):
 		self.H = H
 
 	def __call__(self, state, t=0, params={}):
-		H = self.H(t=t, **params)
+		pams = {'t':t}
+		pams.update(params)
 		if len(state.shape) > 1:
+			H = self.H(t=t, **params)
 			return 1j / self.p.c_hbar * (np.dot(state, H) - np.dot(H, state))
-		return -1j / self.p.c_hbar * np.dot(H, state)
+		return -1j / self.p.c_hbar * self.H.apply(state,params=pams,left=True,symbolic=False) # This may provide a speedup over np.dot(H, state)
 
 	def transform(self, transform_op):
 		return SchrodingerOperator(self.p, H=transform_op(self.H))
