@@ -67,7 +67,7 @@ except:
 		def onComplete(self,identifier=None,message=None,status=0):
 			print "\n"
 			if message:
-				print "Level %d"%level, message
+				print "%s:"%identifier, message
 
 class Progress(object):
 	def __init__(self):
