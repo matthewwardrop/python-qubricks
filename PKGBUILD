@@ -1,6 +1,6 @@
 # Maintainer: Matthew Wardrop <mister.wardrop@gmail.com>
 pkgname=python2-qubricks
-pkgver=0.9
+pkgver=0.91
 pkgrel=1
 pkgdesc="A parameter manager that keeps track of physical (or numerical) quantities, and the relationships between them."
 arch=('i686' 'x86_64')
