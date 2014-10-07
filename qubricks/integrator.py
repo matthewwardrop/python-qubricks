@@ -179,12 +179,14 @@ class Integrator(object):
 	
 	def get_time_ops(self,indicies=None):
 		time_ops = {}
-		indicies = [] if indicies is None else indicies
 		for time,op in self._time_ops.items():
 			time = self._p('t',t=time,**self.get_op_params())
 			if time in time_ops:
 				raise ValueError("Timed operators clash. Consider merging them.")
-			time_ops[time] = op.restrict(*indicies).collapse('t',**self.get_op_params())
+			if indicies is None:
+				time_ops[time] = op.collapse('t',**self.get_op_params())
+			else:
+				time_ops[time] = op.restrict(*indicies).collapse('t',**self.get_op_params())
 		return time_ops
 	
 	########## USER METHODS ################################################
