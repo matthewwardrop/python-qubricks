@@ -481,7 +481,7 @@ class QuantumSystem(object):
 		return ops
 	
 	# y_0s=None,operators=None,solver='rkf45',error_rel=1e-8,error_abs=1e-8,time_ops={},callback=None,callback_fallback=True
-	def get_integrator(self, initial, input=None, output=None, threshold=False, components=None, operators=None, params={}, **args):
+	def get_integrator(self, initial, input=None, output=None, threshold=False, components=None, operators=None, time_ops={}, params={}, **args):
 		'''
 		Returns an Integrator object, which is configured and ready to start integrating according to the parameters
 		passed to this method. `initial` is a list of starting vectors/ensembles. `input` is the basis in which the
@@ -494,6 +494,9 @@ class QuantumSystem(object):
 		
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 		
+		for time,op in time_ops.items():
+			time_ops[time] = op.change_basis(basis=self.basis(output),threshold=threshold)
+			
 		use_ensemble = self.use_ensemble(ops) or True in [len(np.array(s).shape) == 2 for s in initial]
 		# Prepare states
 		y_0s = []
@@ -503,7 +506,7 @@ class QuantumSystem(object):
 			else:
 				y_0s.append(self.state(psi0, input=input, output=output, threshold=threshold))
 		
-		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, **args)
+		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args)
 		
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
 	def integrate(self, t, psi0s, **kwargs):
