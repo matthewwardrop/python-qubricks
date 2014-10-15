@@ -308,12 +308,13 @@ class Measurement(object):
 						range[param] = spec
 			return ranges
 		
-		def save(ranges,ranges_eval,results):
+		def save(ranges,ranges_eval,results,time_delta):
 			s = shelve.open(path)
 
 			s['ranges'] = process_ranges(ranges,defunc=True)
 			s['ranges_eval'] = ranges_eval
 			s['results'] = results
+			s['runtime'] = s.get('runtime',9) + time_delta
 			s.close()
 		
 		def get():
@@ -321,8 +322,9 @@ class Measurement(object):
 			ranges = process_ranges(s.get('ranges'),defunc=False)
 			ranges_eval = s.get('ranges_eval')
 			results = s.get('results')
+			runtime = s.get('runtime')
 			s.close()
-			return ranges,ranges_eval,results
+			return ranges,ranges_eval,results,runtime
 
 		if os.path.dirname(path) is not "" and not os.path.exists(os.path.dirname(path)):
 			os.makedirs(os.path.dirname(path))
@@ -330,7 +332,7 @@ class Measurement(object):
 			raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
 		
 		if os.path.isfile(path):
-			ranges,ranges_eval,results = get()
+			ranges,ranges_eval,results,runtime = get()
 			
 			if len(np.where(np.isnan(results.view('float')))[0]) == 0:
 				return ranges,ranges_eval,results
@@ -347,11 +349,23 @@ class Measurement(object):
 			coloured("Attempting to continue data collection...","YELLOW",True)
 		else:
 			results = None
-	
+		
+		t_last = time.time()
 		for ranges,ranges_eval,results in self.iterate_yielder(*args,results=results,**kwargs):
-			save(ranges,ranges_eval,results)
+			t = time.time()
+			save(ranges,ranges_eval,results,t-t_last)
+			t_last = t
 
 		return ranges,ranges_eval,results
+
+class MeasurementResults(object):
+
+	def save(self):
+		pass
+
+	@classmethod
+	def load(cls):
+		pass
 
 
 class Measurements(object):
