@@ -24,3 +24,11 @@ def tensor(*args):
     for i in xrange(1,len(args)):
         a = np.kron(a,args[i])
     return a
+
+def struct_allclose(a, b, rtol=1e-05, atol=1e-08):
+    if set(a.dtype.names) != set(a.dtype.names):
+        return False
+    for name in a.dtype.names:
+        if not np.allclose(a[name],b[name],rtol=rtol,atol=atol):
+            return False
+    return True
