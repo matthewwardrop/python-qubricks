@@ -260,7 +260,7 @@ class Measurement(object):
 		if results is None:
 			results = MeasurementResults(ranges,ranges_eval,data)
 		else:
-			if not np.all(ranges_eval==results.ranges_eval):
+			if not np.allclose(ranges_eval,results.ranges_eval,rtol=1e-15,atol=1e-15):
 				raise ValueError("Attempted to resume measurement collection on a result set with different parameter ranges.")
 			results.update(ranges=ranges, ranges_eval=ranges_eval, data=data)
 
