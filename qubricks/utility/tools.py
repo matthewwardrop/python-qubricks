@@ -1,7 +1,7 @@
 
 from abc import ABCMeta,abstractmethod
 from qubricks.utility.text import colour_text as coloured
-import sys
+import sys, traceback
 
 def d_prepare(prepare):
 	def wrapper(self,*args,**kwargs):
@@ -15,7 +15,7 @@ def d_simulate(simulate):
 			try:
 				self.prepare()
 			except Exception as e:
-				raise ValueError, "Not yet prepared. Attempts to prepare caused an exception: %s" % e
+				raise ValueError("Not yet prepared. Attempts to prepare caused an exception:\n%s" % traceback.format_exc())
 		if not hasattr(self,'__resulted'):
 			print coloured("Simulating...","YELLOW",True),
 			sys.stdout.flush()

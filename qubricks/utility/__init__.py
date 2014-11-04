@@ -1,6 +1,8 @@
 from tools import ModelAnalysis
 import numpy as np
 
+from text import colour_text
+
 import sympy
 def getLinearlyIndependentCoeffs(expr):
     def getCoefficient(e):
