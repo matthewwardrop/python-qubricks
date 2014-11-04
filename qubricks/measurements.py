@@ -148,19 +148,19 @@ class Measurement(object):
 		if isinstance(ranges,dict):
 			ranges = [ranges]
 
-		levels_info = [None]*len(ranges)
-
 		def extend_ranges(ranges_eval,labels,size):
 			dtype_delta = [(label,float) for label in labels]
 			if ranges_eval is None:
 				ranges_eval = np.zeros(size,dtype=dtype_delta)
+				ranges_eval.fill(np.nan)
 			else:
 				final_shape = ranges_eval.shape + (size,)
 				ranges_eval = np.array(np.repeat(ranges_eval,size).reshape(final_shape),dtype=ranges_eval.dtype.descr + dtype_delta)
+				for label in labels:
+					ranges_eval[label].fill(np.nan)
 			return ranges_eval
 
-
-		def vary_pams(level=0,levels_info=[],output=[],ranges_eval=None):
+		def vary_pams(level=0,iteration=tuple(),output=[],ranges_eval=None):
 			'''
 			This method generates a list of different parameter configurations
 			'''
@@ -171,9 +171,14 @@ class Measurement(object):
 			pam_values = {}
 			count = None
 			for param, pam_range in pam_ranges.items():
-				tparams = params.copy()
-				tparams[param] = pam_range
-				pam_values[param] = self._system.p.range(param,**tparams)
+				
+				if param in ranges_eval.dtype.fields.keys() and np.all(ranges_eval[param] != np.nan): # If values already exist in ranges_eval, reuse them
+					pam_values[param] = ranges_eval[param][iteration + (slice(None),) + tuple([0]*(ranges_eval.ndim-len(iteration)-1))]
+				else:
+					tparams = params.copy()
+					tparams[param] = pam_range
+					pam_values[param] = self._system.p.range(param,**tparams)
+					
 				c = len(pam_values[param])
 				count = c if count is None else count
 				if c != count:
@@ -182,30 +187,11 @@ class Measurement(object):
 			if ranges_eval is None or ranges_eval.ndim < level + 1:
 				ranges_eval = extend_ranges(ranges_eval, pam_ranges.keys(), count)
 
-
-			level_info = {
-				'name': ",".join(ranges[level].keys()),
-				'count': count,
-				'iteration': 0,
-			}
-			levels_info[level] = level_info
-
 			for i in xrange(count):
-				level_info['iteration'] = i + 1
+				current_iteration = iteration + (i,)
 
-				# Generate slice corresponding to this level
-				s = None
-				for i2 in xrange(ranges_eval.ndim):
-					if i2 < level:
-						a = levels_info[i2]['iteration'] - 1
-					elif i2 > level:
-						a = slice(None)
-					else:
-						a = i
-					if s is None:
-						s = (a,)
-					else:
-						s += (a,)
+				# Generate slice corresponding all the components of range_eval this iteration affects
+				s = current_iteration + tuple([slice(None)]*(ranges_eval.ndim-len(current_iteration)))
 
 				# Update parameters
 				for param, pam_value in pam_values.items():
@@ -214,13 +200,12 @@ class Measurement(object):
 
 				if level < len(ranges) - 1:
 					# Recurse problem
-					ranges_eval,_ = vary_pams(level=level+1,levels_info=levels_info,output=output,ranges_eval=ranges_eval)
+					ranges_eval,_ = vary_pams(level=level+1,iteration=current_iteration,output=output,ranges_eval=ranges_eval)
 				else:
-					iteration = tuple(x['iteration']-1 for x in levels_info)
 					if masks is not None and isinstance(masks,list):
 						skip = False
 						for mask in masks:
-							if not mask(iteration,ranges=ranges,params=params):
+							if not mask(current_iteration,ranges=ranges,params=params):
 								skip = True
 								break
 						if skip:
@@ -238,7 +223,7 @@ class Measurement(object):
 
 			return ranges_eval, output
 
-		ranges_eval,output = vary_pams(levels_info=levels_info)
+		ranges_eval,output = vary_pams(ranges_eval=results.ranges_eval if results is not None else None)
 
 		if self.multiprocessing:
 			from qubricks.utility.symmetric import AsyncParallelMap
@@ -246,6 +231,7 @@ class Measurement(object):
 			callback = None
 		else:
 			apm = None
+			levels_info = [{'name':','.join(ranges[i].keys()),'count':ranges_eval.shape[i]} for i in xrange(ranges_eval.ndim)]
 			callback = IteratorCallback(levels_info,ranges_eval.shape)
 			
 		data = results.data if results is not None else None
