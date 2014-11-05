@@ -164,7 +164,7 @@ class Measurement(object):
 			'''
 			This method generates a list of different parameter configurations
 			'''
-
+			
 			pam_ranges = ranges[level]
 
 			## Interpret ranges
@@ -172,8 +172,8 @@ class Measurement(object):
 			count = None
 			for param, pam_range in pam_ranges.items():
 				
-				if ranges_eval is not None and param in ranges_eval.dtype.fields.keys() and np.all(ranges_eval[param] != np.nan): # If values already exist in ranges_eval, reuse them
-					pam_values[param] = ranges_eval[param][iteration + (slice(None),) + tuple([0]*(ranges_eval.ndim-len(iteration)-1))]
+				if results is not None and param in results.ranges_eval.dtype.fields.keys() and np.all(np.isnan(results.ranges_eval[param])): # If values already exist in ranges_eval, reuse them
+					pam_values[param] = results.ranges_eval[param][iteration + (slice(None),) + tuple([0]*(results.ranges_eval.ndim-len(iteration)-1))]
 				else:
 					tparams = params.copy()
 					tparams[param] = pam_range
@@ -197,6 +197,8 @@ class Measurement(object):
 				for param, pam_value in pam_values.items():
 					params[param] = pam_value[i]
 					ranges_eval[param][s] = pam_value[i]
+					if np.isnan(pam_value[i]):
+						raise ValueError ("Bad number for parameter %s @ indicies %s"% (param,str(current_iteration)))
 
 				if level < len(ranges) - 1:
 					# Recurse problem
@@ -223,7 +225,7 @@ class Measurement(object):
 
 			return ranges_eval, output
 
-		ranges_eval,output = vary_pams(ranges_eval=results.ranges_eval if results is not None else None)
+		ranges_eval,output = vary_pams()
 
 		if self.multiprocessing:
 			from qubricks.utility.symmetric import AsyncParallelMap
