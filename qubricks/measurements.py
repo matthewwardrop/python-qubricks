@@ -172,7 +172,7 @@ class Measurement(object):
 			count = None
 			for param, pam_range in pam_ranges.items():
 				
-				if results is not None and param in results.ranges_eval.dtype.fields.keys() and np.all(np.isnan(results.ranges_eval[param])): # If values already exist in ranges_eval, reuse them
+				if results is not None and param in results.ranges_eval.dtype.fields.keys() and not np.any(np.isnan(results.ranges_eval[param])): # If values already exist in ranges_eval, reuse them
 					pam_values[param] = results.ranges_eval[param][iteration + (slice(None),) + tuple([0]*(results.ranges_eval.ndim-len(iteration)-1))]
 				else:
 					tparams = params.copy()
