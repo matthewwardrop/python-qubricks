@@ -496,3 +496,37 @@ class Amplitude(Measurement):
 		if len(state.shape) > 1:
 			return np.abs(np.diag(state))
 		return np.abs(state)**2
+
+class Expectation(Measurement):
+	
+	def init(self,*ops):
+		self.ops = ops
+	
+	def result_type(self,*args,**kwargs):
+		return [
+					('time',float),
+					('expectation',float,(len(self.ops),) )
+				]
+
+	def result_shape(self,*args,**kwargs):
+		return (len(kwargs['y_0s']),len(kwargs.get('times',0)))
+
+	def measure(self,times,y_0s,params={},subspace=None,**kwargs):
+		r = self._system.integrate(times,y_0s,params=params,**kwargs)
+
+		rval = np.empty((len(r),len(times)),dtype=self.result_type(y_0s=y_0s,times=times))
+
+		self.__P = None
+		for i,resultset in enumerate(r):
+			for j,time in enumerate(resultset['time']):
+				rval[i,j] = (time,self.expectations(resultset['state'][j]))
+
+		return rval
+
+	def expectations(self,state):
+		es = []
+		for op in self.ops:
+			if len(state.shape) == 1:
+				state = np.outer(state,state)
+			es.append(np.trace(np.array(op).dot(state)))
+		return es
