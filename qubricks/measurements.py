@@ -38,9 +38,15 @@ class Measurement(object):
 	ranges_type = [('ranges','object')]
 	#axis_type = [('label','object'),('units','object'),('values',float)]
 
-	def __init__(self,system,**kwargs):
-		self._system = system
-		self.init(**kwargs)
+	def __init__(self,*args,**kwargs):
+		self.init(*args,**kwargs)
+
+	@property
+	def _system(self):
+	    return self.__system
+	@_system.setter
+	def _system(self, value):
+	    self.__system = value
 
 	@abstractmethod
 	def init(self,**kwargs):
@@ -164,21 +170,21 @@ class Measurement(object):
 			'''
 			This method generates a list of different parameter configurations
 			'''
-			
+
 			pam_ranges = ranges[level]
 
 			## Interpret ranges
 			pam_values = {}
 			count = None
 			for param, pam_range in pam_ranges.items():
-				
+
 				if results is not None and param in results.ranges_eval.dtype.fields.keys() and not np.any(np.isnan(results.ranges_eval[param])): # If values already exist in ranges_eval, reuse them
 					pam_values[param] = results.ranges_eval[param][iteration + (slice(None),) + tuple([0]*(results.ranges_eval.ndim-len(iteration)-1))]
 				else:
 					tparams = params.copy()
 					tparams[param] = pam_range
 					pam_values[param] = self._system.p.range(param,**tparams)
-					
+
 				c = len(pam_values[param])
 				count = c if count is None else count
 				if c != count:
@@ -235,7 +241,7 @@ class Measurement(object):
 			apm = None
 			levels_info = [{'name':','.join(ranges[i].keys()),'count':ranges_eval.shape[i]} for i in xrange(ranges_eval.ndim)]
 			callback = IteratorCallback(levels_info,ranges_eval.shape)
-			
+
 		data = results.data if results is not None else None
 		data_new = self._iterate_results_init(ranges=ranges,shape=ranges_eval.shape,params=params,*args,**kwargs)
 		if data is None:
@@ -245,7 +251,7 @@ class Measurement(object):
 				raise ValueError("Invalid results given to continue. Shape %s does not agree with result dimensions %s" % (data.shape,data_new.shape))
 			if data.dtype != data_new.dtype:
 				raise ValueError("Invalid results given to continue. Type %s does not agree with result type %s" % (data.dtype,data_new.dtype))
-		
+
 		if results is None:
 			results = MeasurementResults(ranges,ranges_eval,data)
 		else:
@@ -287,7 +293,7 @@ class Measurement(object):
 		to a python shelve file at `path`; all other arguments are passed through to the
 		Measurement.iterate method.
 		'''
-		
+
 		if os.path.dirname(path) is not "" and not os.path.exists(os.path.dirname(path)):
 			os.makedirs(os.path.dirname(path))
 		elif os.path.exists(os.path.dirname(path)) and os.path.isfile(os.path.dirname(path)):
@@ -296,7 +302,7 @@ class Measurement(object):
 		results = None
 		if os.path.isfile(path):
 			results = MeasurementResults.load(path,samplers=samplers)
-			
+
 			if results.is_complete:
 				return results
 
@@ -307,8 +313,8 @@ class Measurement(object):
 			kwargs['masks'] = masks
 
 			coloured("Attempting to continue data collection...","YELLOW",True)
-		
-		
+
+
 		for results in self.iterate_yielder(*args,results=results,**kwargs):
 			results.save(path=path,samplers=samplers)
 
@@ -323,7 +329,7 @@ class MeasurementResults(object):
 		self.runtime = 0 if runtime is None else runtime
 		self.path = path
 		self.samplers = samplers
-	
+
 	def update(self,**kwargs):
 		for key,value in kwargs.items():
 			if key not in ['ranges','ranges_eval','data','runtime','path','samplers']:
@@ -333,17 +339,17 @@ class MeasurementResults(object):
 			else:
 				setattr(self,key,value)
 		return self
-	
+
 	@property
 	def is_complete(self):
 		return len(np.where(np.isnan(self.data.view('float')))[0]) == 0
-	
+
 	@property
 	def continue_mask(self):
 		def continue_mask(indicies, ranges=None, params={}): # Todo: explore other mask options
 				return np.any(np.isnan(self.data[indicies].view('float')))
 		return continue_mask
-	
+
 	@staticmethod
 	def _process_ranges(ranges,defunc=False,samplers={}):
 		if ranges is None:
@@ -398,6 +404,9 @@ class Measurements(object):
 	can be connected; and from there, easily called.
 	'''
 
+	def __init__(self,system):
+		self.__system = system
+
 	def _add(self,name,measurement):
 		if not re.match('^[a-zA-Z][a-zA-Z\_]*$',name):
 			raise ValueError, "'%s' Is an invalid name for a measurement." % name
@@ -405,6 +414,7 @@ class Measurements(object):
 		if not isinstance(measurement,Measurement):
 			raise ValueError, "Supplied measurement must be an instance of Measurement."
 
+		measurement._system = self.__system
 		setattr(self,name,measurement)
 
 	def _remove(self,name):
@@ -498,10 +508,10 @@ class Amplitude(Measurement):
 		return np.abs(state)**2
 
 class Expectation(Measurement):
-	
+
 	def init(self,*ops):
 		self.ops = ops
-	
+
 	def result_type(self,*args,**kwargs):
 		return [
 					('time',float),

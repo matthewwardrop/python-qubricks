@@ -58,7 +58,7 @@ class Operator(object):
 	def exact(self, value):
 		self.__exact = value
 
-	
+
 	def __add_component(self,pam,component):  # Assume components of type numpy.ndarray or sympy.Matrix
 		if not isinstance(component,(np.ndarray,sympy.MatrixBase)):
 			component = np.array(component) if self.exact else sympy.Matrix(component)
@@ -70,7 +70,7 @@ class Operator(object):
 			self.components[pam] += component
 		else:
 			self.components[pam] = component
-	
+
 	def __process_components(self, components):
 		'''
 		Import the specified components, verifying that each component has the same shape.
@@ -84,23 +84,23 @@ class Operator(object):
 			components = self.__array_components(components)
 		else:
 			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(components))
-		
+
 		for pam, component in components.items():
 			self.__add_component(pam, component)
-	
+
 	def __array_components(self,array):
 		# TODO: Check for symbolic nested components?
 		components = {}
 		components[None] = np.array(array)
 		return components
-	
+
 	def __symbolic_components(self,m):
 		components = {}
 		if isinstance(m,sympy.MatrixBase):
 			for i in xrange(m.shape[0]):
 				for j in xrange(m.shape[1]):
 					e = m[i, j]
-	
+
 					if e.is_Number:
 						if None not in components:
 							components[None] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape,dtype=complex)
@@ -108,10 +108,10 @@ class Operator(object):
 					else:
 						for coefficient, symbol in getLinearlyIndependentCoeffs(e):
 							key = str(symbol)
-	
+
 							if key not in components:
 								components[key] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape,dtype=complex)
-	
+
 							components[key][i, j] += coefficient
 		elif isinstance(m,sympy.Expr):
 			components[m] = np.array([1])
@@ -160,7 +160,7 @@ class Operator(object):
 				else:
 					R += self.p(self.__optimise(pam), **params) * self.__np(component)
 			return R
-	
+
 	def apply(self, state, symbolic=False, left=True, params=None):
 		if symbolic:
 			return self.__assemble(symbolic=symbolic, params=params) * state
@@ -260,7 +260,7 @@ class Operator(object):
 		Operator.connected returns a list of indicies that represents the rows/columns that mix
 		with the specified indicies if this operator were to be multiplied by itself. This method
 		requires that the Operator object be square. If Operator.exact is True, then this will
-		return connectedness based upon symbolic forms; otherwise, connectedness will be 
+		return connectedness based upon symbolic forms; otherwise, connectedness will be
 		reported based upon the numerical values provided.
 		'''
 		if len(self.shape) != 2 or self.shape[0] != self.shape[1]:
@@ -341,7 +341,7 @@ class Operator(object):
 
 	def _copy(self):
 		return Operator(self.components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
-	
+
 	def __zero(self,shape=None):
 		if shape is None:
 			shape = self.shape
@@ -418,7 +418,7 @@ class Operator(object):
 		numpy.
 		'''
 		return self._new(self.symbolic().pinv())
-		
+
 
 	def collapse(self,*wrt,**params):
 		'''
@@ -453,7 +453,7 @@ class Operator(object):
 						add_comp(str(indet2),coeff*coeff2*form)
 
 		return self._new(components)
-	
+
 	# Support Indexing
 	def __getitem__(self,index):
 		components = {}
@@ -528,15 +528,15 @@ class OperatorSet(object):
 				raise ValueError("Invalid operator component: '%s'" % component)
 			cs.append(self.components[component])
 		return self.__sum(cs)
-	
+
 	def apply(self, state, symbolic=False, left=True, params=None, components=None):
-		
+
 		if components is None or len(components) == 0:
 			if self.defaults is not None:
 				components = self.defaults
 			else:
 				components = self.components.keys()
-		
+
 		rs = []
 		if len(components) == 0:
 			raise ValueError("Attempted to apply an empty Operator.")
@@ -545,7 +545,7 @@ class OperatorSet(object):
 				raise ValueError("Invalid operator component: '%s'" % component)
 			rs.append(self.components[component].apply(state, symbolic=symbolic, left=left, params=params))
 		return self.__sum(rs)
-		
+
 
 	def __sum(self, operators):
 		'''
@@ -586,7 +586,8 @@ class StateOperator(object):
 	Parameters
 	----------
 	parameters : A referenced to a Parameters instance, which can be shared among
-		multiple objects.
+		multiple objects. This is overridden when adding to a QuantumSystem instance,
+		but is helpful for testing purposes.
 	args,kwargs : Are passed onto the StateOperator.process_args method, which must
 		be implemented by subclasses.
 
@@ -601,10 +602,13 @@ class StateOperator(object):
 	'''
 	__metaclass__ = ABCMeta
 
-	def __init__(self, parameters=None, basis=None, **kwargs):
+	def __init__(self,  parameters=None, basis=None, **kwargs):
 		self.__p = parameters
 		self.__basis = basis
 		self.init(**kwargs)
+
+	def on_attach_to_system(self, system):
+		self.p = system.p
 
 	@abstractmethod
 	def init(self, **kwargs):
@@ -622,6 +626,9 @@ class StateOperator(object):
 		if self.__p is None:
 			raise ValueError("Operator requires use of Parameters object; but none specified.")
 		return self.__p
+	@p.setter
+	def p(self,value):
+		self.__p = value
 
 	@abstractmethod
 	def __call__(self, state, t=0, params={}):
@@ -792,17 +799,20 @@ class SchrodingerOperator(StateOperator):
 
 class LindbladOperator(StateOperator):
 	'''
-	A StateOperator instance that effects a single-termed Lindblad master equation.
+	A StateOperator instance that effects a single-termed Lindblad master equation. This will cause decay in a simple
+	two level system proportional to: exp(-8*coefficient*t)
 	'''
 
 	def init(self, coefficient, operator):
 		self.coefficient = coefficient
 		self.operator = operator
 
-	def __call__(self, state, t=0, params={}):
-		if len(state.shape) == 1:
-			raise ValueError, "Lindblad operator can only be used when evolving the density operator."
+	def on_attach_to_system(self, system):
+		if not isinstance(self.operator, Operator):
+			self.operator = Operator(self.operator,parameters=system.p)
+			self.p = system.p
 
+	def __call__(self, state, t=0, params={}):
 		O = self.operator(t=t, **params)
 		Od = O.transpose().conjugate()
 
