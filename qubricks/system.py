@@ -516,7 +516,7 @@ class QuantumSystem(object):
 			else:
 				y_0s.append(self.state(psi0, input=input, output=output, threshold=threshold))
 
-		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args)
+		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args) # 
 
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
 	def integrate(self, t, psi0s, **kwargs):
