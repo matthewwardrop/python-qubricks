@@ -142,7 +142,7 @@ class QuantumSystem(object):
 				raise ValueError("Unknown type returned for: get_derivative_ops()")
 			else:
 				for name,op in ops_user.items():
-					op.on_attach_to_system(self)
+					op._on_attach_to_system(self)
 					ops[name] = op
 		return ops
 
@@ -174,7 +174,7 @@ class QuantumSystem(object):
 	def add_derivative_op(self, name, state_op):
 		if not isinstance(state_op,StateOperator):
 			raise ValueError, "Supplied operator must be an instance of StateOperator."
-		state_op.on_attach_to_system(self)
+		state_op._on_attach_to_system(self)
 		self.__derivative_ops[name] = state_op
 
 	def add_basis(self, basis):
@@ -505,7 +505,7 @@ class QuantumSystem(object):
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 
 		for time,op in time_ops.items():
-			time_ops[time] = op.change_basis(basis=self.basis(output),threshold=threshold)
+			time_ops[time] = op.change_basis(basis=self.basis(output),threshold=threshold)._on_attach_to_system(self)
 
 		use_ensemble = self.use_ensemble(ops) or True in [len(np.array(s).shape) == 2 for s in initial]
 		# Prepare states
@@ -516,7 +516,7 @@ class QuantumSystem(object):
 			else:
 				y_0s.append(self.state(psi0, input=input, output=output, threshold=threshold))
 
-		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args) # 
+		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args) #
 
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
 	def integrate(self, t, psi0s, **kwargs):

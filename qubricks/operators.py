@@ -58,6 +58,9 @@ class Operator(object):
 	def exact(self, value):
 		self.__exact = value
 
+	def on_attach(self,parameters):
+		self.__p = parameters
+		return self
 
 	def __add_component(self,pam,component):  # Assume components of type numpy.ndarray or sympy.Matrix
 		if not isinstance(component,(np.ndarray,sympy.MatrixBase)):
@@ -607,8 +610,19 @@ class StateOperator(object):
 		self.__basis = basis
 		self.init(**kwargs)
 
-	def on_attach_to_system(self, system):
+	def _on_attach_to_system(self,system):
 		self.p = system.p
+		self.on_attach_to_system(system)
+		return self
+
+	@abstractmethod
+	def on_attach_to_system(self, system):
+		'''
+		StateOperator.on_attach_to_system should ensure that all sub elements
+		of the State Operator use the parent parameters object; and whatever
+		else needs to be shared.
+		'''
+		pass
 
 	@abstractmethod
 	def init(self, **kwargs):
@@ -740,6 +754,9 @@ class DummyOperator(StateOperator):
 	def init(self, **kwargs):
 		pass
 
+	def on_attach_to_system(self, system):
+		pass
+
 	def transform(self, transform_op):
 		return self
 
@@ -768,6 +785,9 @@ class SchrodingerOperator(StateOperator):
 
 	def init(self, H):
 		self.H = H
+
+	def on_attach_to_system(self, system):
+		self.H.on_attach(parameters=system.p)
 
 	def __call__(self, state, t=0, params={}):
 		pams = {'t':t}
@@ -810,7 +830,8 @@ class LindbladOperator(StateOperator):
 	def on_attach_to_system(self, system):
 		if not isinstance(self.operator, Operator):
 			self.operator = Operator(self.operator,parameters=system.p)
-			self.p = system.p
+		else:
+			self.operator.on_attach(parameters=system.p)
 
 	def __call__(self, state, t=0, params={}):
 		O = self.operator(t=t, **params)
