@@ -224,7 +224,7 @@ class Measurement(object):
 					kwargs2['params'] = copy.copy(params)
 					kwargs2['callback_fallback'] = False
 					output.append( (
-							iteration,
+							current_iteration,
 							copy.copy(args),
 							kwargs2
 						) )
