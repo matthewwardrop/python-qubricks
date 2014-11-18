@@ -407,6 +407,9 @@ class QuantumSystem(object):
 
 		return P
 
+	def state_projector(self, state, **kwargs):
+		return self.subspace_projector([state],**kwargs)
+
 	def derivative_ops(self, ops=None, components=None):
 		'''
 		Returns a dictionary of StateOperator objects, which are used to calculate the
