@@ -6,7 +6,7 @@ import numpy as np
 
 from . import operators
 from .basis import Basis, StandardBasis
-from .measurements import Measurements
+from .measurement import Measurements
 from .operators import Operator, OperatorSet, StateOperator
 
 
