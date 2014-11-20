@@ -277,19 +277,24 @@ class MeasurementWrapper(object):
 				kwargs['psi_0s'] = data['state'][:,0]
 			if times is None:
 				kwargs['times'] = data['time'][0,:]
+		else:
+			if 'psi_0s' in kwargs and psi_0s is None:
+				kwargs.pop('psi_0s')
+			if 'times' in kwargs and times is None:
+				kwargs.pop('times')
 
 		if len(self.measurements) == 1:
 			if self.measurements.values()[0]._integration_independent:
-				return self.measurements.values()[0].measure(psi_0s=psi_0s,times=times,**kwargs)
+				return self.measurements.values()[0].measure(**kwargs)
 			else:
-				return self.measurements.values()[0].measure(data,psi_0s=psi_0s,times=times,**kwargs)
+				return self.measurements.values()[0].measure(data,**kwargs)
 
 		res = {}
 		for name, measurement in self.measurements.items():
 			if measurement._integration_independent:
-				res[name] = measurement.measure(psi_0s=psi_0s,times=times,**kwargs)
+				res[name] = measurement.measure(**kwargs)
 			else:
-				res[name] = measurement.measure(data,psi_0s=psi_0s,times=times,**kwargs)
+				res[name] = measurement.measure(data,**kwargs)
 		return res
 
 	def integrate(self,times=None,psi_0s=None,params={},**kwargs):
