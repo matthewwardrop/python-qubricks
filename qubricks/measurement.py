@@ -111,6 +111,14 @@ class Measurement(object):
 		'''
 		resultsObj[indicies] = result
 
+	@property
+	def _integration_independent(self):
+		'''
+		Override this with a value of True if this Measurement object does all the required integration
+		internally.
+		'''
+		return False
+
 
 class MeasurementResults(object):
 
@@ -121,6 +129,8 @@ class MeasurementResults(object):
 		self.runtime = 0 if runtime is None else runtime
 		self.path = path
 		self.samplers = samplers
+
+		self.__check_sanity()
 
 	def __check_sanity(self):
 		if type(self.results) is None:
@@ -248,6 +258,13 @@ class MeasurementWrapper(object):
 
 		self.add_measurements(**measurements)
 
+	@property
+	def __integration_needed(self):
+		for name,meas in self.measurements.items():
+			if not meas._integration_independent:
+				return True
+		return False
+
 	def add_measurements(self,**measurements):
 		self.measurements.update(measurements)
 
@@ -255,27 +272,38 @@ class MeasurementWrapper(object):
 
 		psi_0s = kwargs.get('psi_0s')
 		times = kwargs.get('times')
-		if psi_0s is None:
-			psi_0s = data['state'][:,0]
-		if times is None:
-			times = data['time'][0,:]
+		if data is not None:
+			if psi_0s is None:
+				kwargs['psi_0s'] = data['state'][:,0]
+			if times is None:
+				kwargs['times'] = data['time'][0,:]
 
 		if len(self.measurements) == 1:
-			return self.measurements.values()[0].measure(data,psi_0s=psi_0s,times=times,**kwargs)
+			if self.measurements.values()[0]._integration_independent:
+				return self.measurements.values()[0].measure(psi_0s=psi_0s,times=times,**kwargs)
+			else:
+				return self.measurements.values()[0].measure(data,psi_0s=psi_0s,times=times,**kwargs)
 
 		res = {}
 		for name, measurement in self.measurements.items():
-			res[name] = measurement.measure(data,psi_0s=psi_0s,times=times,**kwargs)
+			if measurement._integration_independent:
+				res[name] = measurement.measure(psi_0s=psi_0s,times=times,**kwargs)
+			else:
+				res[name] = measurement.measure(data,psi_0s=psi_0s,times=times,**kwargs)
 		return res
 
-	def integrate(self,times,psi_0s,params={},**kwargs):
+	def integrate(self,times=None,psi_0s=None,params={},**kwargs):
 		int_kwargs = {}
 		for kwarg in kwargs:
 			if kwarg.startswith('int_'):
 				int_kwargs[kwarg.replace[4:]] = kwargs.pop(kwarg)
 			if kwarg in inspect.getargspec(self._system.integrate).args:
 				int_kwargs[kwarg] = kwargs[kwarg]
-		return self.on(self._system.integrate(times,psi_0s,params=params,**int_kwargs),params=params,**kwargs)
+
+		if self.__integration_needed:
+			return self.on(self._system.integrate(times,psi_0s,params=params,**int_kwargs),params=params,times=times,psi_0s=psi_0s,**kwargs)
+		else:
+			return self.on(None,times=times,psi_0s=psi_0s,params=params,**kwargs)
 
 
 	def iterate_yielder(self,ranges,params={},masks=None,nprocs=None,yield_every=100,results=None,**kwargs):
@@ -306,6 +334,7 @@ class MeasurementWrapper(object):
 
 		t_start = time.time()
 		data = results.results
+
 		for i,(indicies,result) in enumerate(iterator.iterate(self.integrate,function_kwargs=kwargs,params=params,masks=masks,nprocs=nprocs,ranges_eval=ranges_eval)):
 			if type(result) is not dict:
 				self.measurements[self.measurements.keys()[0]]._iterate_results_add(resultsObj=data[self.measurements.keys()[0]],result=result,indicies=indicies)
