@@ -6,6 +6,7 @@ import re
 import shelve
 import sys
 import types
+import inspect
 import datetime, time
 
 import numpy as np
@@ -110,225 +111,23 @@ class Measurement(object):
 		'''
 		resultsObj[indicies] = result
 
-	def iterate_yielder(self,ranges,params={},masks=None,nprocs=None,yield_every=100,results=None,*args,**kwargs):
-		'''
-		Measurement.iterate performs the calculations in Measurement.measure method
-		multiple times, sweeping over multi-dimensional parameter ranges, as specified
-		in the `ranges` argument. The format of the ranges argument is described below.
-		Where not overridden in ranges, additional parameter overrides can be specified
-		in `params`, using any format understood by the Parameters module. This method
-		is by default capable of using multiple processes to speed up execution using
-		Python's multiprocessing module. `nprocs` specifies the number of threads to
-		use; by default, if it is None, one thread less than the number of available
-		processors will be used. `args` and `kwargs` will be forwarded to the the
-		measure method.
-
-		The range formatting is the same as for the Parameters module. i.e. each
-		parameter range can be specified as a list of values ([0,1,2,3]) or a tuple
-		of constraints (<start>,<stop>,<count>,<optional sampler>). The sampler
-		can be one of: 'linear', 'log', 'invlog' or a function f(<start>,<stop>,<count>).
-
-		For each dimension of parameter sweeping, a dictionary of ranges is added to
-		a list; each indexed by the appropriate parameter name. For example:
-		[ {'pam1': (0,1,10), 'pam2': range(10)}, {'pam3': (0,1,5), 'pam4': range(5)} ]
-		In this example, a 2D sweep takes place; the first dimension having 10 iterations,
-		and the second having 5; with pam1, pam2, pam3 and pam4 being updated appropriately.
-
-		`masks` allows one to filter ranges within the parameter ranges to skip. This
-		can be useful if those runs have already been collected, or if they are outside
-		of the domain in which you are especially interested. `masks` should be a list
-		of functions with a declaration similar to:
-		mask (indicies, ranges=None, params={})
-		Masks should not change any of the lists or dictionaries passed to them; and simply
-		return True if this datapoint should be collected. If multiple masks are provided,
-		data will only be collected if all masks return True. Iteration numbers are
-		zero indexed.
-
-		If `yield_every` is not None, every `yield_every` runs, the method yield the current
-		results as a MeasurementResults object. This can be used to save the results iteratively
-		as the calculations are performed; which may help to prevent data loss in the event
-		of interruptions like power loss. If `yield_every` is supposed to be None, you should
-		use `Measurement.iterate` instead.
-		'''
-		# Check if ranges is just a single range, and if so make it a list
-		if isinstance(ranges,dict):
-			ranges = [ranges]
-
-		def extend_ranges(ranges_eval,labels,size):
-			dtype_delta = [(label,float) for label in labels]
-			if ranges_eval is None:
-				ranges_eval = np.zeros(size,dtype=dtype_delta)
-				ranges_eval.fill(np.nan)
-			else:
-				final_shape = ranges_eval.shape + (size,)
-				ranges_eval = np.array(np.repeat(ranges_eval,size).reshape(final_shape),dtype=ranges_eval.dtype.descr + dtype_delta)
-				for label in labels:
-					ranges_eval[label].fill(np.nan)
-			return ranges_eval
-
-		def vary_pams(level=0,iteration=tuple(),output=[],ranges_eval=None):
-			'''
-			This method generates a list of different parameter configurations
-			'''
-
-			pam_ranges = ranges[level]
-
-			## Interpret ranges
-			pam_values = {}
-			count = None
-			for param, pam_range in pam_ranges.items():
-
-				if results is not None and param in results.ranges_eval.dtype.fields.keys() and not np.any(np.isnan(results.ranges_eval[param])): # If values already exist in ranges_eval, reuse them
-					pam_values[param] = results.ranges_eval[param][iteration + (slice(None),) + tuple([0]*(results.ranges_eval.ndim-len(iteration)-1))]
-				else:
-					tparams = params.copy()
-					tparams[param] = pam_range
-					pam_values[param] = self._system.p.range(param,**tparams)
-
-				c = len(pam_values[param])
-				count = c if count is None else count
-				if c != count:
-					raise ValueError, "Parameter ranges for %s are not consistent in count: %s" % (param, pam_ranges)
-
-			if ranges_eval is None or ranges_eval.ndim < level + 1:
-				ranges_eval = extend_ranges(ranges_eval, pam_ranges.keys(), count)
-
-			for i in xrange(count):
-				current_iteration = iteration + (i,)
-
-				# Generate slice corresponding all the components of range_eval this iteration affects
-				s = current_iteration + tuple([slice(None)]*(ranges_eval.ndim-len(current_iteration)))
-
-				# Update parameters
-				for param, pam_value in pam_values.items():
-					params[param] = pam_value[i]
-					ranges_eval[param][s] = pam_value[i]
-					if np.isnan(pam_value[i]):
-						raise ValueError ("Bad number for parameter %s @ indicies %s"% (param,str(current_iteration)))
-
-				if level < len(ranges) - 1:
-					# Recurse problem
-					ranges_eval,_ = vary_pams(level=level+1,iteration=current_iteration,output=output,ranges_eval=ranges_eval)
-				else:
-					if masks is not None and isinstance(masks,list):
-						skip = False
-						for mask in masks:
-							if not mask(current_iteration,ranges=ranges,params=params):
-								skip = True
-								break
-						if skip:
-							continue
-
-
-					kwargs2 = copy.copy(kwargs)
-					kwargs2['params'] = copy.copy(params)
-					kwargs2['callback_fallback'] = False
-					output.append( (
-							current_iteration,
-							copy.copy(args),
-							kwargs2
-						) )
-
-			return ranges_eval, output
-
-		ranges_eval,output = vary_pams()
-
-		if self.multiprocessing:
-			from qubricks.utility.symmetric import AsyncParallelMap
-			apm = AsyncParallelMap(self.measure,progress=True,nprocs=nprocs)
-			callback = None
-		else:
-			apm = None
-			levels_info = [{'name':','.join(ranges[i].keys()),'count':ranges_eval.shape[i]} for i in xrange(ranges_eval.ndim)]
-			callback = IteratorCallback(levels_info,ranges_eval.shape)
-
-		data = results.data if results is not None else None
-		data_new = self._iterate_results_init(ranges=ranges,shape=ranges_eval.shape,params=params,*args,**kwargs)
-		if data is None:
-			data = data_new
-		else:
-			if data.shape != data_new.shape:
-				raise ValueError("Invalid results given to continue. Shape %s does not agree with result dimensions %s" % (data.shape,data_new.shape))
-			if data.dtype != data_new.dtype:
-				raise ValueError("Invalid results given to continue. Type %s does not agree with result type %s" % (data.dtype,data_new.dtype))
-
-		if results is None:
-			results = MeasurementResults(ranges,ranges_eval,data)
-		else:
-			if not struct_allclose(ranges_eval,results.ranges_eval,rtol=1e-15,atol=1e-15):
-				raise ValueError("Attempted to resume measurement collection on a result set with different parameter ranges.")
-			results.update(ranges=ranges, ranges_eval=ranges_eval, data=data)
-
-		def splitlist(l,length=None):
-			if length is None:
-				yield l
-			else:
-				for i in xrange(0,len(l),length):
-					yield l[i:i+length]
-
-		start_time = datetime.datetime.now()
-		for i,tasks in enumerate(splitlist(output,yield_every)):
-			t_start = time.time()
-			if self.multiprocessing:
-				res = apm.map(tasks,count_offset= (yield_every*i if yield_every is not None else None),count_total=len(output),start_time=start_time )
-			else:
-				res = [ (indicies,self.measure(*args,callback=callback,identifier=indicies,**kwargs)) for indicies,args,kwargs in tasks] # TODO: neaten legacy mode callback
-			for indicies,value in res:
-				self._iterate_results_add(resultsObj=data,result=value,indicies=indicies)
-
-			yield results.update(data=data,runtime=time.time()-t_start)
-
-	def iterate(self,*args,**kwargs):
-		'''
-		A wrapper around the `Measurement.iterate_yielder` method in the event that
-		one does not want to deal with a generator object. This simply returns
-		the final result.
-		'''
-		from collections import deque
-		return deque(self.iterate_yielder(*args, yield_every=None, **kwargs),maxlen=1).pop()
-
-	def iterate_to_file(self,path,samplers={},*args,**kwargs):
-		'''
-		Measurement.iterate_to_file saves the results of the Measurement.iterate method
-		to a python shelve file at `path`; all other arguments are passed through to the
-		Measurement.iterate method.
-		'''
-
-		if os.path.dirname(path) is not "" and not os.path.exists(os.path.dirname(path)):
-			os.makedirs(os.path.dirname(path))
-		elif os.path.exists(os.path.dirname(path)) and os.path.isfile(os.path.dirname(path)):
-			raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
-
-		results = None
-		if os.path.isfile(path):
-			results = MeasurementResults.load(path,samplers=samplers)
-
-			if results.is_complete:
-				return results
-
-			masks = kwargs.get('masks',None)
-			if masks is None:
-				masks = []
-			masks.append( results.continue_mask )
-			kwargs['masks'] = masks
-
-			coloured("Attempting to continue data collection...","YELLOW",True)
-
-
-		for results in self.iterate_yielder(*args,results=results,**kwargs):
-			results.save(path=path,samplers=samplers)
-
-		return results
 
 class MeasurementResults(object):
 
-	def __init__(self,ranges,ranges_eval,data,runtime=None,path=None,samplers={}):
+	def __init__(self,ranges,ranges_eval,results,runtime=None,path=None,samplers={}):
 		self.ranges = ranges
 		self.ranges_eval = ranges_eval
-		self.data = data
+		self.results = results
 		self.runtime = 0 if runtime is None else runtime
 		self.path = path
 		self.samplers = samplers
+
+	def __check_sanity(self):
+		if type(self.results) is None:
+			raise ValueError("Improperly initialised result data.")
+		if type(self.results) is not dict:
+			new_name = raw_input("Old data format detect. Please enter a name for the current result data (should match the measurement name): ")
+			self.results = {new_name: self.results}
 
 	def update(self,**kwargs):
 		for key,value in kwargs.items():
@@ -342,19 +141,28 @@ class MeasurementResults(object):
 
 	@property
 	def is_complete(self):
-		return len(np.where(np.isnan(self.data.view('float')))[0]) == 0
+		for name, data in self.results.items():
+			if len(np.where(np.isnan(data.view('float')))[0]) != 0:
+				return False
+		return True
 
 	@property
 	def continue_mask(self):
 		def continue_mask(indicies, ranges=None, params={}): # Todo: explore other mask options
-				return np.any(np.isnan(self.data[indicies].view('float')))
+			for name,data in self.results.items():
+				if np.any(np.isnan(self.results[indicies].view('float'))):
+					return True
+			return False
 		return continue_mask
 
 	@staticmethod
 	def _process_ranges(ranges,defunc=False,samplers={}):
 		if ranges is None:
 			return ranges
-		ranges = copy.deepcopy(ranges)
+		if type(ranges) is dict:
+			ranges = [copy.deepcopy(ranges)]
+		else:
+			ranges = copy.deepcopy(ranges)
 		for range in ranges:
 			for param,spec in range.items():
 				if defunc and type(spec[-1]) == types.FunctionType:
@@ -382,7 +190,7 @@ class MeasurementResults(object):
 		s = shelve.open(path)
 		s['ranges'] = MeasurementResults._process_ranges(self.ranges,defunc=True,samplers=samplers)
 		s['ranges_eval'] = self.ranges_eval
-		s['results'] = self.data
+		s['results'] = self.results
 		s['runtime'] = self.runtime
 		s.close()
 
@@ -391,10 +199,10 @@ class MeasurementResults(object):
 		s = shelve.open(path)
 		ranges = MeasurementResults._process_ranges(s.get('ranges'),defunc=False,samplers=samplers)
 		ranges_eval = s.get('ranges_eval')
-		data = s.get('results')
+		results = s.get('results')
 		runtime = s.get('runtime')
 		s.close()
-		return cls(ranges=ranges,ranges_eval=ranges_eval,data=data,runtime=runtime,path=path,samplers=samplers)
+		return cls(ranges=ranges,ranges_eval=ranges_eval,results=results,runtime=runtime,path=path,samplers=samplers)
 
 class Measurements(object):
 	'''
@@ -406,6 +214,7 @@ class Measurements(object):
 
 	def __init__(self,system):
 		self.__system = system
+		self.__measurements = {}
 
 	def _add(self,name,measurement):
 		if not re.match('^[a-zA-Z][a-zA-Z\_]*$',name):
@@ -414,11 +223,144 @@ class Measurements(object):
 		if not isinstance(measurement,Measurement):
 			raise ValueError, "Supplied measurement must be an instance of Measurement."
 
+		self.__measurements[name] = measurement
 		measurement._system = self.__system
-		setattr(self,name,measurement)
 
 	def _remove(self,name):
-		delattr(self,name)
+		return self.__measurements.pop(name)
+
+	# User interaction
+	def __getattr__(self,name):
+		return MeasurementWrapper(self.__system,{name:self.__measurements[name]})
+
+	def __call__(self,*names):
+		meas = {}
+		for name in names:
+			meas[name] = self.__measurements[name]
+		return MeasurementWrapper(self.__system,meas)
+
+
+class MeasurementWrapper(object):
+
+	def __init__(self,system,measurements={}):
+		self.measurements = {}
+		self._system = system
+
+		self.add_measurements(**measurements)
+
+	def add_measurements(self,**measurements):
+		self.measurements.update(measurements)
+
+	def on(self,data,**kwargs):
+
+		psi_0s = kwargs.get('psi_0s')
+		times = kwargs.get('times')
+		if psi_0s is None:
+			psi_0s = data['state'][:,0]
+		if times is None:
+			times = data['time'][0,:]
+
+		if len(self.measurements) == 1:
+			return self.measurements.values()[0].measure(data,psi_0s=psi_0s,times=times,**kwargs)
+
+		res = {}
+		for name, measurement in self.measurements.items():
+			res[name] = measurement.measure(data,psi_0s=psi_0s,times=times,**kwargs)
+		return res
+
+	def integrate(self,times,psi_0s,params={},**kwargs):
+		int_kwargs = {}
+		for kwarg in kwargs:
+			if kwarg.startswith('int_'):
+				int_kwargs[kwarg.replace[4:]] = kwargs.pop(kwarg)
+			if kwarg in inspect.getargspec(self._system.integrate).args:
+				int_kwargs[kwarg] = kwargs[kwarg]
+		return self.on(self._system.integrate(times,psi_0s,params=params,**int_kwargs),params=params,**kwargs)
+
+
+	def iterate_yielder(self,ranges,params={},masks=None,nprocs=None,yield_every=100,results=None,**kwargs):
+
+		iterator = self._system.p.ranges_iterator(ranges)
+
+		kwargs['callback_fallback'] = False
+
+		ranges_eval,indicies = iterator.ranges_expand(masks=masks,ranges_eval=None,params=params)
+		if results is None:
+			data = {}
+			for name, meas in self.measurements.items():
+				data[name] = meas._iterate_results_init(ranges=ranges,shape=ranges_eval.shape,params=params,**kwargs)
+
+			results = MeasurementResults(ranges,ranges_eval,data)
+		else:
+			if not struct_allclose(ranges_eval,results.ranges_eval,rtol=1e-15,atol=1e-15):
+				raise ValueError("Attempted to resume measurement collection on a result set with different parameter ranges.")
+			if type(results.results) != dict:
+				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]:data})
+
+		def splitlist(l,length=None):
+			if length is None:
+				yield l
+			else:
+				for i in xrange(0,len(l),length):
+					yield l[i:i+length]
+
+		t_start = time.time()
+		data = results.results
+		for i,(indicies,result) in enumerate(iterator.iterate(self.integrate,function_kwargs=kwargs,params=params,masks=masks,nprocs=nprocs,ranges_eval=ranges_eval)):
+			if type(result) is not dict:
+				self.measurements[self.measurements.keys()[0]]._iterate_results_add(resultsObj=data[self.measurements.keys()[0]],result=result,indicies=indicies)
+			else:
+				for name, value in result.items():
+					self.measurements[name]._iterate_results_add(resultsObj=data[name],result=value,indicies=indicies)
+			if i%yield_every == 0:
+				yield results.update(data=data,runtime=time.time()-t_start)
+				t_start = time.time()
+
+		yield results.update(data=data,runtime=time.time()-t_start)
+
+	def iterate(self,*args,**kwargs):
+		'''
+		A wrapper around the `Measurement.iterate_yielder` method in the event that
+		one does not want to deal with a generator object. This simply returns
+		the final result.
+		'''
+		from collections import deque
+		return deque(self.iterate_yielder(*args, yield_every=None, **kwargs),maxlen=1).pop()
+
+	def iterate_to_file(self,path,samplers={},*args,**kwargs):
+		'''
+		Measurement.iterate_to_file saves the results of the Measurement.iterate method
+		to a python shelve file at `path`; all other arguments are passed through to the
+		Measurement.iterate method.
+		'''
+
+		if os.path.dirname(path) is not "" and not os.path.exists(os.path.dirname(path)):
+			os.makedirs(os.path.dirname(path))
+		elif os.path.exists(os.path.dirname(path)) and os.path.isfile(os.path.dirname(path)):
+			raise RuntimeError, "Destination path '%s' is a file."%os.path.dirname(path)
+
+		results = None
+		if os.path.isfile(path):
+			results = MeasurementResults.load(path,samplers=samplers)
+			if results.results is not None:
+
+				if results.is_complete:
+					return results
+
+				masks = kwargs.get('masks',None)
+				if masks is None:
+					masks = []
+				masks.append( results.continue_mask )
+				kwargs['masks'] = masks
+
+				coloured("Attempting to continue data collection...","YELLOW",True)
+			else:
+				results = None
+
+		for results in self.iterate_yielder(*args,results=results,**kwargs):
+			results.save(path=path,samplers=samplers)
+
+		return results
 
 class IteratorCallback(IntegratorCallback):
 	'''

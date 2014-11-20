@@ -11,7 +11,7 @@ setup(name='qubricks',
       #package_dir={'parameters':'.'},
       download_url='https://github.com/matthewwardrop/python-qubricks',
       packages=['qubricks','qubricks.utility'],
-      requires=['numpy','sympy(>0.7.2)','scipy','parameters(>1.1.9)'],
+      requires=['numpy','sympy(>0.7.2)','scipy','parameters(>=1.1.9)'],
       license='''The MIT License (MIT)
 
 Copyright (c) 2013 Matthew Wardrop

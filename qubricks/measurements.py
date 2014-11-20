@@ -1,5 +1,6 @@
-### Example Measurement Operators
+### Example Measurementf Operators
 from .measurement import Measurement
+import numpy as np
 
 class Amplitude(Measurement):
     '''
@@ -17,12 +18,11 @@ class Amplitude(Measurement):
                 ]
 
     def result_shape(self,*args,**kwargs):
-        return (len(kwargs['y_0s']),len(kwargs.get('times',0)))
+        return (len(kwargs['psi_0s']),len(kwargs.get('times',0)))
 
-    def measure(self,times,y_0s,params={},subspace=None,**kwargs):
-        r = self._system.integrate(times,y_0s,params=params,**kwargs)
+    def measure(self,r,times,psi_0s,params={},subspace=None,**kwargs):
 
-        rval = np.empty((len(r),len(times)),dtype=self.result_type(y_0s=y_0s,times=times))
+        rval = np.empty((len(r),len(times)),dtype=self.result_type(psi_0s=psi_0s,times=times))
 
         self.__P = None
         for i,resultset in enumerate(r):
@@ -52,12 +52,11 @@ class Expectation(Measurement):
                 ]
 
     def result_shape(self,*args,**kwargs):
-        return (len(kwargs['y_0s']),len(kwargs.get('times',0)))
+        return (len(kwargs['psi_0s']),len(kwargs.get('times',0)))
 
-    def measure(self,times,y_0s,params={},subspace=None,**kwargs):
-        r = self._system.integrate(times,y_0s,params=params,**kwargs)
+    def measure(self,r,params={},subspace=None,psi_0s=None,times=None,**kwargs):
 
-        rval = np.empty((len(r),len(times)),dtype=self.result_type(y_0s=y_0s,times=times))
+        rval = np.empty((len(r),len(times)),dtype=self.result_type(psi_0s=psi_0s,times=times))
 
         self.__P = None
         for i,resultset in enumerate(r):
@@ -91,16 +90,15 @@ class Leakage(Measurement):
                 ]
 
     def result_shape(self,*args,**kwargs):
-        return (len(kwargs['y_0s']),len(kwargs.get('times',0)))
+        return (len(kwargs['psi_0s']),len(kwargs.get('times',0)))
 
     @property
     def result_units(self):
         return None
 
-    def measure(self,times,y_0s,params={},subspace=None,input=None,output=None,**kwargs):
-        r = self._system.integrate(times,y_0s,params=params,input=input,output=output,**kwargs)
+    def measure(self,r,times,psi_0s,params={},subspace=None,input=None,output=None,**kwargs):
 
-        rval = np.empty((len(r),len(times)),dtype=self.result_type(y_0s=y_0s,times=times))
+        rval = np.empty((len(r),len(times)),dtype=self.result_type(psi_0s=psi_0s,times=times))
 
         self.__P = None
         for i,resultset in enumerate(r):

@@ -9,7 +9,7 @@ import warnings
 
 from .operators import StateOperator, Operator
 
-#TODO: Document this function.
+# TODO: Document this function.
 # TODO: Make private all functions which don't need to be public
 
 class IntegratorCallback(object):
