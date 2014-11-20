@@ -160,7 +160,7 @@ class MeasurementResults(object):
 	def continue_mask(self):
 		def continue_mask(indicies, ranges=None, params={}): # Todo: explore other mask options
 			for name,data in self.results.items():
-				if np.any(np.isnan(self.results[indicies].view('float'))):
+				if np.any(np.isnan(self.results[name][indicies].view('float'))):
 					return True
 			return False
 		return continue_mask
@@ -387,7 +387,7 @@ class MeasurementWrapper(object):
 				masks.append( results.continue_mask )
 				kwargs['masks'] = masks
 
-				coloured("Attempting to continue data collection...","YELLOW",True)
+				print coloured("Attempting to continue data collection...","YELLOW",True)
 			else:
 				results = None
 
