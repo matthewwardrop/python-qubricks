@@ -1,6 +1,9 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 import sympy
+import types
+
+from parameters import Parameters
 
 import numpy as np
 import scipy as sp
@@ -9,8 +12,6 @@ import scipy.linalg as spla
 from .utility import dot
 from .utility import getLinearlyIndependentCoeffs
 
-
-# TODO: Properly remember basis information when doing arithmetic
 class Operator(object):
 	'''
 	Operator(components, parameters=None, basis=None)
@@ -42,14 +43,16 @@ class Operator(object):
 
 	def __init__(self, components, parameters=None, basis=None, exact=False):
 		self.__p = parameters
+		self.__optimised = {}
+
 		self.__shape = None
 		self.components = {}
 		self.__exact = exact
 
 		self.__basis = None
 		self.set_basis(basis)
+
 		self.__process_components(components)
-		self.__optimised = {}
 
 	@property
 	def exact(self):
@@ -57,10 +60,6 @@ class Operator(object):
 	@exact.setter
 	def exact(self, value):
 		self.__exact = value
-
-	def on_attach(self,parameters):
-		self.__p = parameters
-		return self
 
 	def __add_component(self,pam,component):  # Assume components of type numpy.ndarray or sympy.Matrix
 		if not isinstance(component,(np.ndarray,sympy.MatrixBase)):
@@ -195,8 +194,16 @@ class Operator(object):
 		Returns a reference to the internal Parameter object.
 		'''
 		if self.__p is None:
-			raise ValueError("Operator requires use of Parameters object; but none specified.")
+			raise ValueError("Operator requires use of Parameters object; but none specified. You can add one using: Operator.p = parametersInstance.")
+		if type(self.__p) in (types.FunctionType,types.MethodType):
+			return self.__p()
 		return self.__p
+	@p.setter
+	def p(self,parameters):
+		if not ( isinstance(parameters,Parameters) or isinstance(parameters, (types.FunctionType,types.MethodType)) and (isinstance(parameters(), Parameters) or parameters() is None) ):
+			raise ValueError("You must provide a Parameters instance or a function with no arguments that returns a Parameters instance.")
+		self.__p = parameters
+		return self
 
 	def __optimise(self, pam):
 		'''
@@ -235,7 +242,7 @@ class Operator(object):
 		if basis == self.__basis:
 			return self
 		elif basis is None and self.__basis is not None:
-			O = basis.transform_to(self, basis=None, threshold=threshold)
+			O = self.__basis.transform_to(self, basis=None, threshold=threshold)
 		elif basis is not None and self.__basis is None:
 			O = basis.transform_from(self, basis=None, threshold=threshold)
 		else:
@@ -345,6 +352,12 @@ class Operator(object):
 	def _copy(self):
 		return Operator(self.components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
 
+	def __get_other_operator(self,other):
+		if self.basis == other.basis or other.basis == "*" or self.basis == '*':
+			return other
+		else:
+			return other.change_basis(self.basis)
+
 	def __zero(self,shape=None):
 		if shape is None:
 			shape = self.shape
@@ -352,13 +365,17 @@ class Operator(object):
 
 	def __add__(self, other):
 		O = self._copy()
-		for pam, component in other.components.items():
+		if not isinstance(other, Operator):
+			other = Operator(other)
+		for pam, component in self.__get_other_operator(other).components.items():
 			O.components[pam] = O.components.get(pam, self.__zero()) + component
 		return O
 
 	def __sub__(self, other):
 		O = self._copy()
-		for pam, component in other.components.items():
+		if not isinstance(other, Operator):
+			other = Operator(other)
+		for pam, component in self.__get_other_operator(other).components.items():
 			O.components[pam] = O.components.get(pam, self.__zero()) - component
 		return O
 
@@ -372,7 +389,7 @@ class Operator(object):
 		shape = None
 		if isinstance(other, Operator):
 			for pam, component in self.components.items():
-				for pam_other, component_other in other.components.items():
+				for pam_other, component_other in self.__get_other_operator(other).components.items():
 					mpam = pam if pam_other is None else (pam_other if pam is None else '*'.join((pam, pam_other)))
 					mpam = str(sympy.S(mpam)) if mpam is not None else None
 					r = self.__dot(component, component_other)
@@ -406,10 +423,13 @@ class Operator(object):
 		'''
 		components = {}
 
+		if not isinstance(other,Operator):
+			other = Operator(other)
+
 		for pam, component in self.components.items():
 			components[pam] = spla.block_diag(self.__np(component), sp.zeros(other.shape))
 
-		for pam, component in other.components.items():
+		for pam, component in self.__get_other_operator(other).components.items():
 			components[pam] = components.get(pam, self.__zero(self.shape + component.shape)) + spla.block_diag(sp.zeros(self.shape), self.__np(component))
 
 		return self._new(components)
@@ -610,20 +630,6 @@ class StateOperator(object):
 		self.__basis = basis
 		self.init(**kwargs)
 
-	def _on_attach_to_system(self,system):
-		self.p = system.p
-		self.on_attach_to_system(system)
-		return self
-
-	@abstractmethod
-	def on_attach_to_system(self, system):
-		'''
-		StateOperator.on_attach_to_system should ensure that all sub elements
-		of the State Operator use the parent parameters object; and whatever
-		else needs to be shared.
-		'''
-		pass
-
 	@abstractmethod
 	def init(self, **kwargs):
 		'''
@@ -641,8 +647,24 @@ class StateOperator(object):
 			raise ValueError("Operator requires use of Parameters object; but none specified.")
 		return self.__p
 	@p.setter
-	def p(self,value):
-		self.__p = value
+	def p(self,parameters):
+		if not isinstance(parameters,Parameters):
+			raise ValueError("You must provide a Parameters instance.")
+		self.__p = parameters
+
+	def __p_ref(self):
+		'''
+		This method allows child Operator objects to automatically be kept up to date with
+		changes to the Parameters instance associated with the StateOperator object. This
+		cannot be used directly, but is used by the StateOperator.Operator method.
+		'''
+		return self.__p
+
+	def Operator(self,operator):
+		if not isinstance(operator,Operator):
+			operator = Operator(operator)
+		operator.p = self.__p_ref
+		return operator
 
 	@abstractmethod
 	def __call__(self, state, t=0, params={}):
@@ -754,9 +776,6 @@ class DummyOperator(StateOperator):
 	def init(self, **kwargs):
 		pass
 
-	def on_attach_to_system(self, system):
-		pass
-
 	def transform(self, transform_op):
 		return self
 
@@ -784,10 +803,7 @@ class SchrodingerOperator(StateOperator):
 	'''
 
 	def init(self, H):
-		self.H = H
-
-	def on_attach_to_system(self, system):
-		self.H.on_attach(parameters=system.p)
+		self.H = self.Operator(H)
 
 	def __call__(self, state, t=0, params={}):
 		pams = {'t':t}
@@ -825,13 +841,7 @@ class LindbladOperator(StateOperator):
 
 	def init(self, coefficient, operator):
 		self.coefficient = coefficient
-		self.operator = operator
-
-	def on_attach_to_system(self, system):
-		if not isinstance(self.operator, Operator):
-			self.operator = Operator(self.operator,parameters=system.p)
-		else:
-			self.operator.on_attach(parameters=system.p)
+		self.operator = self.Operator(operator)
 
 	def __call__(self, state, t=0, params={}):
 		O = self.operator(t=t, **params)

@@ -5,7 +5,9 @@ import numpy as np
 import qubricks
 import math
 import sympy
-from qubricks import SpinBasis, Operator, QuantumSystem
+from qubricks import  Operator, QuantumSystem
+from qubricks.wall import SimpleBasis, SimpleBasis, SpinBasis
+from parameters import Parameters
 
 print "Unit Tests"
 print "-----------------"
@@ -41,16 +43,36 @@ class TestBasis(unittest.TestCase):
 	def test_info(self):
 		self.assertEqual(self.b.state_info([1,0,0,0,0,0,0,0]),{'spin':1.5})
 
-class TestTwoLevel(unittest.TestCase):
+class TestOperators(unittest.TestCase):
 
 	def setUp(self):
-		self.system = TwoLevel()
+		self.p = Parameters()
+		self.basis_z = SimpleBasis(parameters=self.p,name='basis_z',operator=[[1,0],[0,1]])
+		self.basis_x = SimpleBasis(parameters=self.p,name='basis_x',operator=np.sqrt(2)*np.array([[1,1],[1,-1]]))
 
-	def test_evolution(self):
-		for time in list(range(1,20)):
-			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False)['state'][0,0], self.system.ideal_integration(time, 'up'), 5)
-			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False, params={'B':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'B':0}), 5)
-			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False, params={'J':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'J':0}), 5)
+	def test_arithmetic(self):
+		op1 = Operator([[1,0],[0,1]])
+		op2 = Operator([[1,1],[1,1]])
+
+		self.assertTrue( np.all(np.array([[2,1],[1,2]]) == (op1+op2)()) )
+		self.assertTrue( np.all(np.array([[0,-1],[-1,0]]) == (op1-op2)()) )
+
+	def test_auto_basis_transformation(self):
+		op1 = Operator([[1,0],[0,1]],basis=self.basis_z)
+		op2 = Operator([[0,1],[1,0]],basis=self.basis_x)
+
+		self.assertTrue( np.all(np.array([[2,0],[0,0]]) == (op1+op2)()) )
+
+# class TestTwoLevel(unittest.TestCase):
+#
+# 	def setUp(self):
+# 		self.system = TwoLevel()
+#
+# 	def test_evolution(self):
+# 		for time in list(range(1,20)):
+# 			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False)['state'][0,0], self.system.ideal_integration(time, 'up'), 5)
+# 			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False, params={'B':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'B':0}), 5)
+# 			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False, params={'J':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'J':0}), 5)
 
 class TwoLevel(QuantumSystem):
 
@@ -68,7 +90,7 @@ class TwoLevel(QuantumSystem):
 
 	def setup_hamiltonian(self):
 		return self.Operator( {'J': np.array([[0,1],[1,0]]),'B':np.array([[1,0],[0,-1]])})
-	
+
 	def setup_states(self):
 		'''
 		Add the named/important states to be used by this quantum system.

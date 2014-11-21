@@ -5,7 +5,7 @@ from parameters import Parameters
 import numpy as np
 
 from . import operators
-from .basis import Basis, StandardBasis
+from .basis import Basis,StandardBasis
 from .measurement import Measurements
 from .operators import Operator, OperatorSet, StateOperator
 
@@ -142,7 +142,7 @@ class QuantumSystem(object):
 				raise ValueError("Unknown type returned for: get_derivative_ops()")
 			else:
 				for name,op in ops_user.items():
-					op._on_attach_to_system(self)
+					op.p = self.p
 					ops[name] = op
 		return ops
 
