@@ -68,6 +68,8 @@ class QuantumSystem(object):
 		self.setup_bases()
 
 		self.setup_states()
+		
+		self.setup_derivative_ops()
 
 		self.measure = Measurements(self)
 		self.setup_measurements()
@@ -122,18 +124,29 @@ class QuantumSystem(object):
 	def default_derivative_ops(self):
 		raise NotImplementedError
 
-	def get_derivative_ops(self, components=None):
+	@abstractmethod
+	def setup_derivative_ops(self):
 		'''
 		Setup the derivative operators to be implemented on top of the
-		basic quantum evolution operator.
+		basic quantum evolution operator. Note that the "evolution" 
+		name is taken by the SchroedingerStateOperator. If you override it,
+		standard quantum evolution may not occur.
 		'''
+		pass
+	
+	def get_derivative_ops(self, components=None):
+		'''
+		If your derivative operators require access to the current state of 
+		QuantumSystem, you can implement this method. Should return a dictionary
+		of StateOperator objects. Key names exist in the same namespace as 
+		setup_derivate_ops.'''
 		pass
 
 	def __get_derivative_ops(self, components=None):
 		ops = {}
 		if components is None:
 			components = tuple()
-		ops["evolution"] = SchrodingerStateOperator(self.p, H=self.H(*components))
+		ops["evolution"] = SchrodingerStateOperator(parameters=self.p, H=self.H(*components))
 		ops.update(self.__derivative_ops)
 		ops_user = self.get_derivative_ops(components=components)
 		if ops_user is not None:
@@ -173,7 +186,7 @@ class QuantumSystem(object):
 	def add_derivative_op(self, name, state_op):
 		if not isinstance(state_op,StateOperator):
 			raise ValueError, "Supplied operator must be an instance of StateOperator."
-		state_op._on_attach_to_system(self)
+		state_op.p = self.p
 		self.__derivative_ops[name] = state_op
 
 	def add_basis(self, basis):
@@ -507,7 +520,8 @@ class QuantumSystem(object):
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 
 		for time,op in time_ops.items():
-			time_ops[time] = op.change_basis(basis=self.basis(output),threshold=threshold)._on_attach_to_system(self)
+			time_ops[time] = op.change_basis(basis=self.basis(output),threshold=threshold)
+			time_ops[time].p = self.p
 
 		use_ensemble = self.use_ensemble(ops) or True in [len(np.array(s).shape) == 2 for s in initial]
 		# Prepare states
