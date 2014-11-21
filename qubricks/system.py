@@ -529,4 +529,4 @@ class QuantumSystem(object):
 		return self.get_integrator(initial=psi0s, **kwargs).start(t)
 
 # Cheekily import some classes from wall
-from qubricks.wall import SchrodingerStateOperator, StandardBasis
+from .wall import SchrodingerStateOperator, StandardBasis
