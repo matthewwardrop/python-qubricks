@@ -4,11 +4,10 @@ from parameters import Parameters
 
 import numpy as np
 
-from . import operators
-from .basis import Basis,StandardBasis
+from .basis import Basis
 from .measurement import Measurements
-from .operators import Operator, OperatorSet, StateOperator
-
+from .operator import Operator, OperatorSet
+from .stateoperator import StateOperator
 
 try:
 	import sage
@@ -134,7 +133,7 @@ class QuantumSystem(object):
 		ops = {}
 		if components is None:
 			components = tuple()
-		ops["evolution"] = operators.SchrodingerOperator(self.p, H=self.H(*components))
+		ops["evolution"] = SchrodingerStateOperator(self.p, H=self.H(*components))
 		ops.update(self.__derivative_ops)
 		ops_user = self.get_derivative_ops(components=components)
 		if ops_user is not None:
@@ -528,3 +527,6 @@ class QuantumSystem(object):
 		Integrator object. The value returned from the integration routine is returned here.
 		'''
 		return self.get_integrator(initial=psi0s, **kwargs).start(t)
+
+# Cheekily import some classes from wall
+from qubricks.wall import SchrodingerStateOperator, StandardBasis

@@ -1,2 +1,2 @@
-from .. import Operator, OperatorSet
+from ..operator import Operator, OperatorSet
 

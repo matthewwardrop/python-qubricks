@@ -2,7 +2,17 @@ import numpy as np
 import math
 import re
 
-from ..basis import Basis, StandardBasis
+from ..basis import Basis
+
+class StandardBasis(Basis):
+
+    def init(self,dim=None):
+        if dim is None:
+            raise ValueError("Dimension must be specified.")
+
+    @property
+    def operator(self):
+        return self.Operator(np.eye(self.dim))
 
 class SimpleBasis(Basis):
 

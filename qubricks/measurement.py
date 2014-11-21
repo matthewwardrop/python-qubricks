@@ -12,7 +12,7 @@ import datetime, time
 import numpy as np
 
 from .integrator import IntegratorCallback
-from .operators import StateOperator
+from .stateoperator import StateOperator
 from .utility.text import colour_text as coloured
 from .utility import struct_allclose
 

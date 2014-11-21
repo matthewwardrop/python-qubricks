@@ -5,5 +5,5 @@ __version__ = '0.93'
 from .system import QuantumSystem
 from .measurement import Measurement, MeasurementResults
 from .basis import *
-from .bases import *
-from .operators import *
+from .operator import *
+from .stateoperator import *

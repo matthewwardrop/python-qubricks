@@ -7,7 +7,8 @@ import time as proftime
 from sympy.core.cache import clear_cache as sympy_clear_cache
 import warnings
 
-from .operators import StateOperator, Operator
+from .operator import Operator
+from .stateoperator import StateOperator
 
 # TODO: Document this function.
 # TODO: Make private all functions which don't need to be public

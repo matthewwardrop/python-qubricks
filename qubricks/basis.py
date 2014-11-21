@@ -7,7 +7,8 @@ import numpy as np
 import sympy
 import sympy.physics.quantum as sq
 
-from .operators import Operator
+from .operator import Operator
+from parameters import Parameters
 
 
 class Basis(object):
@@ -330,17 +331,6 @@ class Basis(object):
 		if invert:
 			return lambda y: self.transform_to(y, basis=basis, threshold=threshold, params=params)
 		return lambda y: self.transform_from(y, basis=basis, threshold=threshold, params=params)
-
-
-class StandardBasis(Basis):
-
-	def init(self,dim=None):
-		if dim is None:
-			raise ValueError("Dimension must be specified.")
-
-	@property
-	def operator(self):
-		return self.Operator(np.eye(self.dim))
 
 ############ SYMBOLIC STATE REPRESENTATION HELPERS #################################################
 

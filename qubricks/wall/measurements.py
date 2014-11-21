@@ -1,5 +1,5 @@
 ### Example Measurementf Operators
-from .measurement import Measurement
+from ..measurement import Measurement
 import numpy as np
 
 class Amplitude(Measurement):
