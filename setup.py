@@ -10,7 +10,7 @@ setup(name='qubricks',
       url='http://www.matthewwardrop.info/',
       #package_dir={'parameters':'.'},
       download_url='https://github.com/matthewwardrop/python-qubricks',
-      packages=['qubricks','qubricks.utility'],
+      packages=['qubricks','qubricks.utility','qubricks.wall','qubricks.analysis'],
       requires=['numpy','sympy(>0.7.2)','scipy','parameters(>=1.2)'],
       license='''The MIT License (MIT)
 
