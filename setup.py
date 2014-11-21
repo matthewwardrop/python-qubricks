@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='qubricks',
-      version='0.92',
+      version='0.93',
       description='A library to assist in the rapid prototyping and simulation of quantum systems.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
@@ -11,7 +11,7 @@ setup(name='qubricks',
       #package_dir={'parameters':'.'},
       download_url='https://github.com/matthewwardrop/python-qubricks',
       packages=['qubricks','qubricks.utility'],
-      requires=['numpy','sympy(>0.7.2)','scipy','parameters(>=1.1.9)'],
+      requires=['numpy','sympy(>0.7.2)','scipy','parameters(>=1.2)'],
       license='''The MIT License (MIT)
 
 Copyright (c) 2013 Matthew Wardrop
