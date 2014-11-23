@@ -168,7 +168,15 @@ class Basis(object):
 		Basis.state_fromSymbolic converts symbolic representations of states into
 		numerical state vectors.
 		'''
-		return np.array(sq.represent(expr, basis=self.__sympy_basis, qubricks_basis=self).tolist()[0],dtype=object)
+		
+		r = np.array(sq.represent(expr, basis=self.__sympy_basis).tolist(),dtype=object)
+		
+		if len(r.shape) == 2:
+			if r.shape[0] == 1:
+				r = r[0,:]
+			else:
+				r = r[:,0]
+		return r
 
 	@property
 	def __sympy_basis(self):
@@ -176,6 +184,7 @@ class Basis(object):
 		Sympy requires an operator instance to determine how states should represent
 		themselves. This property provides such an instance.
 		'''
+		
 		op = QubricksBasis(self.__class__.__name__)
 		op.qubricks = self
 		return op
@@ -342,10 +351,11 @@ class QubricksBasis(sq.Operator):
 # TODO: Flesh out sympy symbolic representation
 class QubricksKet(sq.Ket):
 	def _represent_QubricksBasis(self, basis, **options):
-		if 'qubricks_basis' not in options:
-			raise ValueError("Qubricks basis object must be passed to ket for representation.")
-		basis = options['qubricks_basis']
-		return sympy.Matrix( basis.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
+		if getattr(basis,'qubricks') is None:
+			raise ValueError("The `qubricks` attribute must be set on the basis object for ket representation.")
+		#print str(self)
+		#print sympy.Matrix( basis.qubricks.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
+		return sympy.Matrix( basis.qubricks.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
 
 	def _eval_innerproduct_QubricksBra(self, bra, **hints):
 		return 1 if bra.label == self.label else 0
