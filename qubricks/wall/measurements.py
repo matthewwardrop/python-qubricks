@@ -2,7 +2,7 @@
 from ..measurement import Measurement
 import numpy as np
 
-class Amplitude(Measurement):
+class AmplitudeMeasurement(Measurement):
     '''
     Amplitude is a sample Measurement subclass that measures the amplitude of being
     in certain basis states as function of time throughout some state evolution.
@@ -36,7 +36,7 @@ class Amplitude(Measurement):
             return np.abs(np.diag(state))
         return np.abs(state)**2
 
-class Expectation(Measurement):
+class ExpectationMeasurement(Measurement):
     '''
     Expectation measures the expectation value of a particular operator applied to
     a system state.
@@ -74,7 +74,7 @@ class Expectation(Measurement):
         return es
 
 
-class Leakage(Measurement):
+class LeakageMeasurement(Measurement):
     '''
     Leakage measures the probability of a quantum system being outside of a specified
     subspace.
