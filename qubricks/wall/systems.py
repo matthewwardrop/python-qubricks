@@ -47,9 +47,10 @@ class SimpleQuantumSystem(QuantumSystem):
     def default_derivative_ops(self):
         return ['evolution']+self.get_derivative_ops().keys()
 
-    def get_derivative_ops(self, components=None):
+    def setup_derivative_ops(self, components=None):
         '''
         Setup the derivative operators to be implemented on top of the
         basic quantum evolution operator.
         '''
-        return self.kwargs.get('operators',{})
+        for name, op in self.kwargs.get('operators',{}).items():
+            self.add_derivative_op(name, op)
