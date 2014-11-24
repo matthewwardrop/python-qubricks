@@ -535,12 +535,12 @@ class QuantumSystem(object):
 		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args) #
 
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
-	def integrate(self, t, psi0s, **kwargs):
+	def integrate(self, times, psi_0s, **kwargs):
 		'''
 		This is a shorthand notation for initialising the Integrator (as in QuantumSystem.get_integrator); and then running the
 		Integrator object. The value returned from the integration routine is returned here.
 		'''
-		return self.get_integrator(initial=psi0s, **kwargs).start(t)
+		return self.get_integrator(initial=psi_0s, **kwargs).start(times)
 
 # Cheekily import some classes from wall
 from .wall import SchrodingerStateOperator,StandardBasis

@@ -302,11 +302,11 @@ class MeasurementWrapper(object):
 		for kwarg in kwargs:
 			if kwarg.startswith('int_'):
 				int_kwargs[kwarg.replace[4:]] = kwargs.pop(kwarg)
-			if kwarg in inspect.getargspec(self._system.integrate).args:
+			if kwarg in inspect.getargspec(self._system.get_integrator).args:
 				int_kwargs[kwarg] = kwargs[kwarg]
 
 		if self.__integration_needed:
-			return self.on(self._system.integrate(times,psi_0s,params=params,**int_kwargs),params=params,times=times,psi_0s=psi_0s,**kwargs)
+			return self.on(self._system.integrate(times=times,psi_0s=psi_0s,params=params,**int_kwargs),params=params,**kwargs)
 		else:
 			return self.on(None,times=times,psi_0s=psi_0s,params=params,**kwargs)
 
@@ -346,7 +346,7 @@ class MeasurementWrapper(object):
 			else:
 				for name, value in result.items():
 					self.measurements[name]._iterate_results_add(resultsObj=data[name],result=value,indicies=indicies)
-			if i%yield_every == 0:
+			if yield_every is not None and i%yield_every == 0:
 				yield results.update(data=data,runtime=time.time()-t_start)
 				t_start = time.time()
 

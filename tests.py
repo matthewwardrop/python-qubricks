@@ -111,7 +111,7 @@ class TwoLevel(QuantumSystem):
 	def default_derivative_ops(self):
 		return ['evolution']
 
-	def get_derivative_ops(self, components=None):
+	def setup_derivative_ops(self):
 		'''
 		Setup the derivative operators to be implemented on top of the
 		basic quantum evolution operator.
