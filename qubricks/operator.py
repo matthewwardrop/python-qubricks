@@ -1,13 +1,11 @@
-import sympy
-import types
-
+from .utility import getLinearlyIndependentCoeffs
 from parameters import Parameters
-
 import numpy as np
 import scipy as sp
 import scipy.linalg as spla
+import sympy
+import types
 
-from .utility import getLinearlyIndependentCoeffs
 
 class Operator(object):
 	'''
@@ -58,13 +56,13 @@ class Operator(object):
 	def exact(self, value):
 		self.__exact = value
 
-	def __add_component(self,pam,component):  # Assume components of type numpy.ndarray or sympy.Matrix
-		if not isinstance(component,(np.ndarray,sympy.MatrixBase)):
+	def __add_component(self, pam, component):  # Assume components of type numpy.ndarray or sympy.Matrix
+		if not isinstance(component, (np.ndarray, sympy.MatrixBase)):
 			component = np.array(component) if self.exact else sympy.Matrix(component)
 		if self.__shape is None:
 			self.__shape = np.array(component).shape
 		elif component.shape != self.__shape:
-			raise ValueError, "Invalid shape."
+			raise ValueError("Invalid shape.")
 		if pam in self.components:
 			self.components[pam] += component
 		else:
@@ -77,9 +75,9 @@ class Operator(object):
 		# TODO: Add support for second quantised forms
 		if type(components) == dict:
 			pass
-		elif isinstance(components,(sympy.MatrixBase,sympy.Expr)):
+		elif isinstance(components, (sympy.MatrixBase, sympy.Expr)):
 			components = self.__symbolic_components(components)
-		elif isinstance(components,(list,np.ndarray)):
+		elif isinstance(components, (list, np.ndarray)):
 			components = self.__array_components(components)
 		else:
 			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(components))
@@ -87,32 +85,32 @@ class Operator(object):
 		for pam, component in components.items():
 			self.__add_component(pam, component)
 
-	def __array_components(self,array):
+	def __array_components(self, array):
 		# TODO: Check for symbolic nested components?
 		components = {}
 		components[None] = np.array(array)
 		return components
 
-	def __symbolic_components(self,m):
+	def __symbolic_components(self, m):
 		components = {}
-		if isinstance(m,sympy.MatrixBase):
+		if isinstance(m, sympy.MatrixBase):
 			for i in xrange(m.shape[0]):
 				for j in xrange(m.shape[1]):
 					e = m[i, j]
 
 					if e.is_Number:
 						if None not in components:
-							components[None] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape,dtype=complex)
+							components[None] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
 						components[None][i, j] += e
 					else:
 						for coefficient, symbol in getLinearlyIndependentCoeffs(e):
 							key = str(symbol)
 
 							if key not in components:
-								components[key] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape,dtype=complex)
+								components[key] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
 
 							components[key][i, j] += coefficient
-		elif isinstance(m,sympy.Expr):
+		elif isinstance(m, sympy.Expr):
 			components[m] = np.array([1])
 		else:
 			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(m))
@@ -169,7 +167,7 @@ class Operator(object):
 				if pam is None:
 					R += self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component))
 				else:
-					R += self.p(self.__optimise(pam), **params) * ( self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component)) )
+					R += self.p(self.__optimise(pam), **params) * (self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component)))
 			return R
 
 	def __repr__(self):
@@ -192,12 +190,12 @@ class Operator(object):
 		'''
 		if self.__p is None:
 			raise ValueError("Operator requires use of Parameters object; but none specified. You can add one using: Operator.p = parametersInstance.")
-		if type(self.__p) in (types.FunctionType,types.MethodType):
+		if type(self.__p) in (types.FunctionType, types.MethodType):
 			return self.__p()
 		return self.__p
 	@p.setter
-	def p(self,parameters):
-		if not ( isinstance(parameters,Parameters) or isinstance(parameters, (types.FunctionType,types.MethodType)) and (isinstance(parameters(), Parameters) or parameters() is None) ):
+	def p(self, parameters):
+		if not (isinstance(parameters, Parameters) or isinstance(parameters, (types.FunctionType, types.MethodType)) and (isinstance(parameters(), Parameters) or parameters() is None)):
 			raise ValueError("You must provide a Parameters instance or a function with no arguments that returns a Parameters instance.")
 		self.__p = parameters
 		return self
@@ -210,7 +208,6 @@ class Operator(object):
 		if pam not in self.__optimised:
 			self.__optimised[pam] = self.p.optimise(pam)
 		return self.__optimised[pam]
-
 
 	############# Basis helper methods #######################################################
 
@@ -259,7 +256,6 @@ class Operator(object):
 				O[pam] = transform_op(component)
 		return self._new(O)
 
-
 	############## Subspace methods ###################################################
 
 	def connected(self, *indicies, **params):
@@ -271,7 +267,7 @@ class Operator(object):
 		reported based upon the numerical values provided.
 		'''
 		if len(self.shape) != 2 or self.shape[0] != self.shape[1]:
-			raise ValueError("Operator not square. Connectedness only works when Operators are square. %s"%self.components)
+			raise ValueError("Operator not square. Connectedness only works when Operators are square. %s" % self.components)
 
 		new = set(indicies)
 
@@ -279,7 +275,7 @@ class Operator(object):
 			component = np.array(component)
 			if key is None or not (not self.exact and self.p.is_resolvable(key, **params) and self.p(key, **params) == 0):
 				for index in indicies:
-					new.update(np.where(np.logical_or(component[:, index] != 0 , component[index, :] != 0))[0].tolist())
+					new.update(np.where(np.logical_or(component[:, index] != 0, component[index, :] != 0))[0].tolist())
 
 		if len(new.difference(indicies)) != 0:
 			new.update(self.connected(*new, **params))
@@ -296,18 +292,17 @@ class Operator(object):
 
 		components = {}
 
-
 		for pam, component in self.components.items():
 
 			if type(component) != np.ndarray:
-				new = type(component)(np.zeros( (len(indicies),len(indicies)) ))
+				new = type(component)(np.zeros( (len(indicies), len(indicies)) ))
 			else:
-				new = np.zeros( (len(indicies),len(indicies)) , dtype=component.dtype)
+				new = np.zeros( (len(indicies),len(indicies)), dtype=component.dtype )
 
 			# Do basis index sweeping to allow for duck-typing
-			for i,I in enumerate(indicies):
-				for j,J in enumerate(indicies):
-					new[i,j] = component[I,J]
+			for i, I in enumerate(indicies):
+				for j, J in enumerate(indicies):
+					new[i, j] = component[I, J]
 
 			components[pam] = new
 
@@ -344,18 +339,18 @@ class Operator(object):
 	########## Define Basic Arithmetic ################################################
 
 	def _new(self, components={}):
-		return Operator(components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
+		return Operator(components, parameters=self.__p, basis=self.__basis, exact=self.__exact)
 
 	def _copy(self):
-		return Operator(self.components, parameters=self.__p,basis=self.__basis,exact=self.__exact)
+		return Operator(self.components, parameters=self.__p, basis=self.__basis, exact=self.__exact)
 
-	def __get_other_operator(self,other):
+	def __get_other_operator(self, other):
 		if self.basis == other.basis or other.basis == "*" or self.basis == '*':
 			return other
 		else:
 			return other.change_basis(self.basis)
 
-	def __zero(self,shape=None):
+	def __zero(self, shape=None):
 		if shape is None:
 			shape = self.shape
 		return sympy.zeros(shape) if self.exact else np.zeros(shape)
@@ -395,9 +390,9 @@ class Operator(object):
 					if mpam not in components:
 						if type(r) != np.ndarray or self.exact or other.exact:
 							components[mpam] = sympy.zeros(shape)
-					components[mpam] = components.get(mpam,self.__zero(shape)) + r
+					components[mpam] = components.get(mpam, self.__zero(shape)) + r
 		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
-			for pam, component in self.components.items(): # TODO: convert symbolic matrix to Operator and do normal multiplication
+			for pam, component in self.components.items():  # TODO: convert symbolic matrix to Operator and do normal multiplication
 				components[pam] = self.__dot(component, other)
 
 		else:
@@ -420,7 +415,7 @@ class Operator(object):
 		'''
 		components = {}
 
-		if not isinstance(other,Operator):
+		if not isinstance(other, Operator):
 			other = Operator(other)
 
 		for pam, component in self.components.items():
@@ -439,8 +434,7 @@ class Operator(object):
 		'''
 		return self._new(self.symbolic().pinv())
 
-
-	def collapse(self,*wrt,**params):
+	def collapse(self, *wrt, **params):
 		'''
 		Collapses and simplifies an Operator object on the basis that certain parameters are going
 		to be fixed and non-varying. As many parameters as possible are collapsed into the constant component
@@ -450,40 +444,41 @@ class Operator(object):
 		'''
 		components = {}
 
-		def add_comp(key,contrib):
+		def add_comp(key, contrib):
 			if key not in components:
-				components[key] = np.zeros(self.shape,dtype='complex')
+				components[key] = np.zeros(self.shape, dtype='complex')
 			components[key] += contrib
 
-		for component,form in self.components.items():
+		for component, form in self.components.items():
 			if component is None:
-				add_comp(None,form)
+				add_comp(None, form)
 			else:
-				for (coeff,indet) in getLinearlyIndependentCoeffs(sympy.S(component)):
-					if len(wrt) > 0 and self.p.is_constant(str(indet),*wrt,**params):
-						add_comp(None,coeff*self.p(indet,**params)*form)
+				for (coeff, indet) in getLinearlyIndependentCoeffs(sympy.S(component)):
+					if len(wrt) > 0 and self.p.is_constant(str(indet), *wrt, **params):
+						add_comp(None, coeff * self.p(indet, **params) * form)
 					else:
 						subs = {}
 						if len(wrt) > 0:
 							for s in indet.free_symbols:
-								if self.p.is_constant(str(s),*wrt,**params):
-									subs[s] = self.p(str(s),**params)
+								if self.p.is_constant(str(s), *wrt, **params):
+									subs[s] = self.p(str(s), **params)
 
-						coeff2,indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
-						add_comp(str(indet2),coeff*coeff2*form)
+						coeff2, indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
+						add_comp(str(indet2), coeff * coeff2 * form)
 
 		return self._new(components)
 
 	# Support Indexing
-	def __getitem__(self,index):
+	def __getitem__(self, index):
 		components = {}
-		for arg,form in self.components.items():
+		for arg, form in self.components.items():
 			components[arg] = form[index]
 		return self._new(components)
 
+
 class OrthogonalOperator(Operator):
 
-	def inverse(self): # Orthogonal Operators are orthogonal matrices. Thus Q^-1 = Q^T
+	def inverse(self):  # Orthogonal Operators are orthogonal matrices. Thus Q^-1 = Q^T
 		components = {}
 
 		for key, c in self.components.items():
@@ -565,7 +560,6 @@ class OperatorSet(object):
 				raise ValueError("Invalid operator component: '%s'" % component)
 			rs.append(self.components[component].apply(state, symbolic=symbolic, left=left, params=params))
 		return self.__sum(rs)
-
 
 	def __sum(self, operators):
 		'''

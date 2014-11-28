@@ -15,6 +15,7 @@ try:
 except ImportError:
 	from .integrator import RealIntegrator as Integrator
 
+
 class QuantumSystem(object):
 	'''
 	QuantumSystem (parameters=None,**kwargs)
@@ -55,7 +56,7 @@ class QuantumSystem(object):
 		else:
 			self.set_parameters(Parameters(constants=True))
 
-		if isinstance(parameters,dict):
+		if isinstance(parameters, dict):
 			self.p << parameters
 
 		self.setup_parameters()
@@ -68,7 +69,7 @@ class QuantumSystem(object):
 		self.setup_bases()
 
 		self.setup_states()
-		
+
 		self.setup_derivative_ops()
 
 		self.measure = Measurements(self)
@@ -128,17 +129,17 @@ class QuantumSystem(object):
 	def setup_derivative_ops(self):
 		'''
 		Setup the derivative operators to be implemented on top of the
-		basic quantum evolution operator. Note that the "evolution" 
+		basic quantum evolution operator. Note that the "evolution"
 		name is taken by the SchroedingerStateOperator. If you override it,
 		standard quantum evolution may not occur.
 		'''
 		pass
-	
+
 	def get_derivative_ops(self, components=None):
 		'''
-		If your derivative operators require access to the current state of 
+		If your derivative operators require access to the current state of
 		QuantumSystem, you can implement this method. Should return a dictionary
-		of StateOperator objects. Key names exist in the same namespace as 
+		of StateOperator objects. Key names exist in the same namespace as
 		setup_derivate_ops.'''
 		pass
 
@@ -153,7 +154,7 @@ class QuantumSystem(object):
 			if type(ops_user) is not dict:
 				raise ValueError("Unknown type returned for: get_derivative_ops()")
 			else:
-				for name,op in ops_user.items():
+				for name, op in ops_user.items():
 					op.p = self.p
 					ops[name] = op
 		return ops
@@ -184,8 +185,8 @@ class QuantumSystem(object):
 		self.measure._add(name, measurement)
 
 	def add_derivative_op(self, name, state_op):
-		if not isinstance(state_op,StateOperator):
-			raise ValueError, "Supplied operator must be an instance of StateOperator."
+		if not isinstance(state_op, StateOperator):
+			raise ValueError("Supplied operator must be an instance of StateOperator.")
 		state_op.p = self.p
 		self.__derivative_ops[name] = state_op
 
@@ -195,7 +196,7 @@ class QuantumSystem(object):
 		is given by Basis.name .
 		'''
 		if not isinstance(basis, Basis):
-			raise ValueError, "Invalid basis object."
+			raise ValueError("Invalid basis object.")
 		if self.__basis_default is None:
 			self.__basis_default = basis.name
 		self.__named_bases[basis.name] = basis
@@ -205,15 +206,15 @@ class QuantumSystem(object):
 		Add a named state, provided in some basis `basis`.
 		'''
 		# TODO: check dimensions
-		if not isinstance(state,Operator):
-			state = np.array(state,dtype=complex) # Force internally stored named states to be complex arrays
+		if not isinstance(state, Operator):
+			state = np.array(state, dtype=complex)  # Force internally stored named states to be complex arrays
 
 		if len(state.shape) > 1:
-			if isinstance(state,np.ndarray):
+			if isinstance(state, np.ndarray):
 				state /= float(np.sum(np.diag(state)))
 			self.__named_ensembles[name] = self.basis(basis).transform(state, params=params, inverse=True) if basis is not None else state
 		else:
-			if isinstance(state,np.ndarray):
+			if isinstance(state, np.ndarray):
 				state /= np.linalg.norm(state)
 			self.__named_states[name] = self.basis(basis).transform(state, params=params, inverse=True) if basis is not None else state
 
@@ -225,7 +226,7 @@ class QuantumSystem(object):
 		# TODO: Check dimensions
 		fstates = []
 		for state in subspace:
-			fstates.append(self.state(state, input=basis, params=params,evaluate=False))
+			fstates.append(self.state(state, input=basis, params=params, evaluate=False))
 		self.__named_subspaces[name] = fstates
 
 	def Operator(self, components, basis=None):
@@ -308,14 +309,14 @@ class QuantumSystem(object):
 		'''
 		if isinstance(state, str):
 			state = self.__named_states[state]
-			if isinstance(state,Operator) and evaluate:
+			if isinstance(state, Operator) and evaluate:
 				state = state(**params)
 			if output is None:
 				return state
 			else:
 				return self.basis(output).transform(state, threshold=threshold, params=params)
 		else:
-			if not isinstance(state,Operator):
+			if not isinstance(state, Operator):
 				state = np.array(state)
 			elif evaluate:
 				state = state(**params)
@@ -420,7 +421,7 @@ class QuantumSystem(object):
 		return P
 
 	def state_projector(self, state, **kwargs):
-		return self.subspace_projector([state],**kwargs)
+		return self.subspace_projector([state], **kwargs)
 
 	def derivative_ops(self, ops=None, components=None):
 		'''
@@ -442,9 +443,9 @@ class QuantumSystem(object):
 		Returns a string overview of this QuantumSystem object.
 		'''
 		title = "%s Quantum System" % type(self).__name__
-		print "-"*len(title)
+		print "-" * len(title)
 		print title
-		print "-"*len(title)
+		print "-" * len(title)
 		print "\tDerivative Operators: %s" % self.derivative_ops
 		print "\tBases: %s" % sorted(self.bases)
 		print "\tSubspaces: %s" % sorted(self.subspaces)
@@ -480,7 +481,7 @@ class QuantumSystem(object):
 		if ensemble:
 			return True
 
-		raise RuntimeError, "No possible configuration found that supports all operators."
+		raise RuntimeError("No possible configuration found that supports all operators.")
 
 	def __integrator_operators(self, components=None, operators=None, basis=None, threshold=False):
 		'''
@@ -497,7 +498,7 @@ class QuantumSystem(object):
 
 		for _, operator in self.derivative_ops(ops=operators, components=components).items():
 			if basis is not None:
-				op = operator.change_basis(basis,threshold=threshold)
+				op = operator.change_basis(basis, threshold=threshold)
 			else:
 				op = operator
 
@@ -519,8 +520,8 @@ class QuantumSystem(object):
 
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 
-		for time,op in time_ops.items():
-			time_ops[time] = op.change_basis(basis=self.basis(output),threshold=threshold)
+		for time, op in time_ops.items():
+			time_ops[time] = op.change_basis(basis=self.basis(output), threshold=threshold)
 			time_ops[time].p = self.p
 
 		use_ensemble = self.use_ensemble(ops) or True in [len(np.array(s).shape) == 2 for s in initial]
@@ -532,7 +533,7 @@ class QuantumSystem(object):
 			else:
 				y_0s.append(self.state(psi0, input=input, output=output, threshold=threshold))
 
-		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args) #
+		return Integrator(parameters=self.p, initial=y_0s, operators=ops, op_params=params, time_ops=time_ops, **args)
 
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
 	def integrate(self, times, psi_0s, **kwargs):
@@ -543,4 +544,4 @@ class QuantumSystem(object):
 		return self.get_integrator(initial=psi_0s, **kwargs).start(times)
 
 # Cheekily import some classes from wall
-from .wall import SchrodingerStateOperator,StandardBasis
+from .wall import SchrodingerStateOperator, StandardBasis

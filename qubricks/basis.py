@@ -1,14 +1,13 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
-import math
-import re
 import warnings
 
 import numpy as np
 import sympy
 import sympy.physics.quantum as sq
 
-from .operator import Operator
 from parameters import Parameters
+
+from .operator import Operator
 
 
 class Basis(object):
@@ -67,9 +66,8 @@ class Basis(object):
 		'''
 		return self.__name
 	@name.setter
-	def name(self,name):
+	def name(self, name):
 		self.__name = name
-
 
 	def __repr__(self):
 		return "<%s(Basis) '%s'>" % (self.__class__.__name__, self.name)
@@ -92,8 +90,8 @@ class Basis(object):
 			raise ValueError("Parameters instance required by Basis object, a Parameters object has not been configured.")
 		return self.__p
 	@p.setter
-	def p(self,parameters):
-		if not isinstance(parameters,Parameters):
+	def p(self, parameters):
+		if not isinstance(parameters, Parameters):
 			raise ValueError("Parameters reference must be an instance of Parameters.")
 		self.__p = parameters
 
@@ -105,8 +103,8 @@ class Basis(object):
 		'''
 		return self.__p
 
-	def Operator(self,operator):
-		if not isinstance(operator,Operator):
+	def Operator(self, operator):
+		if not isinstance(operator, Operator):
 			operator = Operator(operator)
 		operator.p = self.__p_ref
 		return operator
@@ -118,7 +116,7 @@ class Basis(object):
 		columns. The operator should use the parameters instance provided by the
 		Basis subclass.
 		'''
-		raise NotImplementedError, "Basis operator has not been implemented."
+		raise NotImplementedError("Basis operator has not been implemented.")
 
 	def states(self, **params):
 		'''
@@ -168,14 +166,14 @@ class Basis(object):
 		Basis.state_fromSymbolic converts symbolic representations of states into
 		numerical state vectors.
 		'''
-		
-		r = np.array(sq.represent(expr, basis=self.__sympy_basis).tolist(),dtype=object)
-		
+
+		r = np.array(sq.represent(expr, basis=self.__sympy_basis).tolist(), dtype=object)
+
 		if len(r.shape) == 2:
 			if r.shape[0] == 1:
-				r = r[0,:]
+				r = r[0, :]
 			else:
-				r = r[:,0]
+				r = r[:, 0]
 		return r
 
 	@property
@@ -184,7 +182,6 @@ class Basis(object):
 		Sympy requires an operator instance to determine how states should represent
 		themselves. This property provides such an instance.
 		'''
-		
 		op = QubricksBasis(self.__class__.__name__)
 		op.qubricks = self
 		return op
@@ -249,7 +246,7 @@ class Basis(object):
 			else:
 				output = np.dot(od, np.dot(state, o))
 		else:
-			raise ValueError, "Invalid number of dimensions."
+			raise ValueError("Invalid number of dimensions.")
 
 		return self.__filter(output, state=state, threshold=threshold, params=params)
 
@@ -293,7 +290,6 @@ class Basis(object):
 		threshold *= 1e-8
 		# print "final threshold", threshold
 
-
 		if isinstance(state, Operator):
 			output.clean(threshold)
 		else:
@@ -309,7 +305,7 @@ class Basis(object):
 		'''
 		if basis is not None:
 			if not isinstance(basis, Basis):
-				raise ValueError, '`basis` must be a Basis object.'
+				raise ValueError('`basis` must be a Basis object.')
 			state = basis.transform(state, inverse=True, threshold=threshold, params=params)
 
 		return self.transform(state, threshold=threshold, params=params)
@@ -322,7 +318,7 @@ class Basis(object):
 		'''
 		if basis is not None:
 			if not isinstance(basis, Basis):
-				raise ValueError, '`basis` must be a Basis object.'
+				raise ValueError('`basis` must be a Basis object.')
 			return basis.transform_from(state, basis=self, threshold=threshold, params=params)
 
 		return self.transform(state, inverse=True, threshold=threshold, params=params)
@@ -344,18 +340,18 @@ class Basis(object):
 ############ SYMBOLIC STATE REPRESENTATION HELPERS #################################################
 
 
-
 class QubricksBasis(sq.Operator):
 	pass
+
 
 # TODO: Flesh out sympy symbolic representation
 class QubricksKet(sq.Ket):
 	def _represent_QubricksBasis(self, basis, **options):
-		if getattr(basis,'qubricks') is None:
+		if getattr(basis, 'qubricks') is None:
 			raise ValueError("The `qubricks` attribute must be set on the basis object for ket representation.")
-		#print str(self)
-		#print sympy.Matrix( basis.qubricks.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
-		return sympy.Matrix( basis.qubricks.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
+		# print str(self)
+		# print sympy.Matrix( basis.qubricks.state_fromString(str(self)) ).applyfunc(sympy.nsimplify)
+		return sympy.Matrix(basis.qubricks.state_fromString(str(self))).applyfunc(sympy.nsimplify)
 
 	def _eval_innerproduct_QubricksBra(self, bra, **hints):
 		return 1 if bra.label == self.label else 0
@@ -387,6 +383,7 @@ class QubricksKet(sq.Ket):
 	def dual_class(self):
 		return QubricksBra
 
+
 class QubricksBra(sq.Bra):
 
 	@classmethod
@@ -400,5 +397,3 @@ class QubricksBra(sq.Bra):
 		l = ",".join(map(str, self.label))
 		return sympy.Matrix(basis.state_fromString("|%s>" % l).transpose()).applyfunc(sympy.nsimplify)
 
-
-######## Useful Basis Implementations ###################################################################
