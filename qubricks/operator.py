@@ -100,14 +100,14 @@ class Operator(object):
 
 					if e.is_Number:
 						if None not in components:
-							components[None] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
+							components[None] = sympy.zeros(*m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
 						components[None][i, j] += e
 					else:
 						for coefficient, symbol in getLinearlyIndependentCoeffs(e):
 							key = str(symbol)
 
 							if key not in components:
-								components[key] = sympy.zeros(m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
+								components[key] = sympy.zeros(*m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
 
 							components[key][i, j] += coefficient
 		elif isinstance(m, sympy.Expr):
@@ -353,7 +353,7 @@ class Operator(object):
 	def __zero(self, shape=None):
 		if shape is None:
 			shape = self.shape
-		return sympy.zeros(shape) if self.exact else np.zeros(shape)
+		return sympy.zeros(*shape) if self.exact else np.zeros(shape)
 
 	def __add__(self, other):
 		O = self._copy()
@@ -389,7 +389,7 @@ class Operator(object):
 						shape = r.shape
 					if mpam not in components:
 						if type(r) != np.ndarray or self.exact or other.exact:
-							components[mpam] = sympy.zeros(shape)
+							components[mpam] = sympy.zeros(*shape)
 					components[mpam] = components.get(mpam, self.__zero(shape)) + r
 		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
 			for pam, component in self.components.items():  # TODO: convert symbolic matrix to Operator and do normal multiplication
