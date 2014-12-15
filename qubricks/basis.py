@@ -305,7 +305,7 @@ class Basis(object):
 		'''
 		if basis is not None:
 			if not isinstance(basis, Basis):
-				raise ValueError('`basis` must be a Basis object.')
+				raise ValueError('`basis` must be a Basis object; received `%s` of type `%s`.' % (str(basis), type(basis)))
 			state = basis.transform(state, inverse=True, threshold=threshold, params=params)
 
 		return self.transform(state, threshold=threshold, params=params)

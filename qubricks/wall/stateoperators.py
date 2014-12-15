@@ -65,7 +65,7 @@ class SchrodingerStateOperator(StateOperator):
         return self.H.connected(*indicies, **params)
 
     def collapse(self, *wrt, **params):
-        return SchrodingerStateOperator(self.p, H=self.H.collapse(*wrt,**params))
+        return SchrodingerStateOperator(self.p, H=self.H.collapse(*wrt, **params), basis=self.basis)
 
     @property
     def for_state(self):
@@ -97,12 +97,13 @@ class LindbladStateOperator(StateOperator):
 
     def restrict(self, *indicies):
         return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.restrict(*indicies))
+        # No basis reported since that does not make sense when restricted
 
     def connected(self, *indicies, **params):
         return self.operator.connected(*indicies, **params)
 
     def collapse(self, *wrt, **params):
-        return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.collapse(*wrt, **params))
+        return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.collapse(*wrt, **params), basis=self.basis)
 
     @property
     def for_state(self):

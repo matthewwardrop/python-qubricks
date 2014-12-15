@@ -326,7 +326,7 @@ class MeasurementWrapper(object):
 			if not struct_allclose(ranges_eval, results.ranges_eval, rtol=1e-15, atol=1e-15):
 				raise ValueError("Attempted to resume measurement collection on a result set with different parameter ranges.")
 			if type(results.results) != dict:
-				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]:data})
+				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]: data})
 
 		def splitlist(l, length=None):
 			if length is None:

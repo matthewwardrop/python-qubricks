@@ -497,10 +497,10 @@ class QuantumSystem(object):
 			operators = self.default_derivative_ops
 
 		for _, operator in self.derivative_ops(ops=operators, components=components).items():
-			if basis is not None:
-				op = operator.change_basis(basis, threshold=threshold)
-			else:
-				op = operator
+			#if basis is not None:
+			op = operator.change_basis(basis, threshold=threshold)
+			#else:
+			#	op = operator
 
 			ops.append(op)
 
