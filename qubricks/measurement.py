@@ -136,8 +136,9 @@ class MeasurementResults(object):
 		if type(self.results) is None:
 			raise ValueError("Improperly initialised result data.")
 		if type(self.results) is not dict:
-			new_name = raw_input("Old data format detect. Please enter a name for the current result data (should match the measurement name): ")
+			new_name = raw_input("Old data format detect. Upgrading: Please enter a name for the current result data (should match the measurement name): ")
 			self.results = {new_name: self.results}
+			self.save() # Commit changes to new format
 
 	def update(self,**kwargs):
 		for key,value in kwargs.items():
