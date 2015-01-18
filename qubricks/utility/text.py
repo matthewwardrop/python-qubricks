@@ -1,8 +1,10 @@
 import sys
+
 COLOURS = (
     'BLACK', 'RED', 'GREEN', 'YELLOW',
     'BLUE', 'MAGENTA', 'CYAN', 'WHITE'
 )
+
 
 def colour_text(text, colour_name='WHITE', bold=False):
     if colour_name in COLOURS:

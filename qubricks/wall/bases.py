@@ -4,15 +4,17 @@ import re
 
 from ..basis import Basis
 
+
 class StandardBasis(Basis):
 
-    def init(self,dim=None):
+    def init(self, dim=None):
         if dim is None:
             raise ValueError("Dimension must be specified.")
 
     @property
     def operator(self):
         return self.Operator(np.eye(self.dim))
+
 
 class SimpleBasis(Basis):
 
@@ -35,7 +37,7 @@ class SimpleBasis(Basis):
 
 class SpinBasis(StandardBasis):
 
-    def init(self,dim=None):
+    def init(self, dim=None):
         if dim is None:
             raise ValueError("Dimension must be specified.")
         if dim % 2 == 1:
@@ -53,7 +55,7 @@ class SpinBasis(StandardBasis):
             mod = (index % 2 - 1.0 / 2.0)
             totalSpin -= mod
             index = (index - index % 2) / 2
-        return {'spin':totalSpin}
+        return {'spin': totalSpin}
 
     def state_fromString(self, state, params={}):
         '''

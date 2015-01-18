@@ -1,5 +1,6 @@
 from ..system import QuantumSystem
 
+
 class SimpleQuantumSystem(QuantumSystem):
 
     def setup_environment(self, **kwargs):
@@ -40,17 +41,17 @@ class SimpleQuantumSystem(QuantumSystem):
         '''
         Add the measurements to be used by this quantum system instance.
         '''
-        for name,meas in self.kwargs.get('measurements',{}).items():
+        for name, meas in self.kwargs.get('measurements', {}).items():
             self.add_measurement(name, meas)
 
     @property
     def default_derivative_ops(self):
-        return ['evolution']+self.get_derivative_ops().keys()
+        return ['evolution'] + self.get_derivative_ops().keys()
 
     def setup_derivative_ops(self, components=None):
         '''
         Setup the derivative operators to be implemented on top of the
         basic quantum evolution operator.
         '''
-        for name, op in self.kwargs.get('operators',{}).items():
+        for name, op in self.kwargs.get('operators', {}).items():
             self.add_derivative_op(name, op)
