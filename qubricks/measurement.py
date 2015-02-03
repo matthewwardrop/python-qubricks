@@ -134,8 +134,9 @@ class MeasurementResults(object):
 		if type(self.results) is None:
 			raise ValueError("Improperly initialised result data.")
 		if type(self.results) is not dict:
-			new_name = raw_input("Old data format detect. Please enter a name for the current result data (should match the measurement name): ")
+			new_name = raw_input("Old data format detect. Upgrading: Please enter a name for the current result data (should match the measurement name): ")
 			self.results = {new_name: self.results}
+			self.save() # Commit changes to new format
 
 	def update(self, **kwargs):
 		for key, value in kwargs.items():
@@ -324,7 +325,8 @@ class MeasurementWrapper(object):
 			results = MeasurementResults(ranges, ranges_eval, data)
 		else:
 			if not struct_allclose(ranges_eval, results.ranges_eval, rtol=1e-15, atol=1e-15):
-				raise ValueError("Attempted to resume measurement collection on a result set with different parameter ranges.")
+				if not raw_input("Attempted to resume measurement collection on a result set with different parameter ranges. Continue anyway?").lower().startswith('y'):
+					raise ValueError("Stopping.")
 			if type(results.results) != dict:
 				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]: data})
 
