@@ -436,6 +436,9 @@ class QuantumSystem(object):
 		for k in o.keys():
 			if k not in ops:
 				o.pop(k)
+		for key in ops:
+			if key not in o:
+				raise ValueError("Unknown operator: %s" % key)
 		return o
 
 	def show(self):
@@ -497,10 +500,10 @@ class QuantumSystem(object):
 			operators = self.default_derivative_ops
 
 		for _, operator in self.derivative_ops(ops=operators, components=components).items():
-			#if basis is not None:
+
+			if not (operator.basis is None or isinstance(operator.basis, Basis)):
+				operator.set_basis(self.basis(operator.basis))
 			op = operator.change_basis(basis, threshold=threshold)
-			#else:
-			#	op = operator
 
 			ops.append(op)
 
@@ -521,6 +524,8 @@ class QuantumSystem(object):
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 
 		for time, op in time_ops.items():
+			if not (op.basis is None or isinstance(op.basis, Basis)):
+				op.set_basis(self.basis(op.basis))
 			time_ops[time] = op.change_basis(basis=self.basis(output), threshold=threshold)
 			time_ops[time].p = self.p
 
