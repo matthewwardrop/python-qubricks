@@ -310,7 +310,8 @@ class MeasurementWrapper(object):
 		else:
 			return self.on(None, times=times, psi_0s=psi_0s, params=params, **kwargs)
 
-	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, yield_every=100, results=None, **kwargs):
+	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, yield_every=60, max_results=None, **kwargs):
+		# yield_every is the minimum/maximum number of seconds to go without yielding
 
 		iterator = self._system.p.ranges_iterator(ranges)
 
@@ -346,7 +347,7 @@ class MeasurementWrapper(object):
 			else:
 				for name, value in result.items():
 					self.measurements[name]._iterate_results_add(resultsObj=data[name], result=value, indicies=indicies)
-			if yield_every is not None and i % yield_every == 0:
+			if yield_every is not None and time.time() - t_start >= yield_every:
 				yield results.update(data=data, runtime=time.time() - t_start)
 				t_start = time.time()
 
