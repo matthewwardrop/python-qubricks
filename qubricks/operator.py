@@ -136,6 +136,36 @@ class Operator(object):
 		'''
 		return self.__assemble(symbolic=True, params=params)
 
+	def qutip(self, **params):
+		'''
+		Return the representation of this object in QuTip's notation for time-dependent
+		Hamiltonians operators.
+		'''
+		try:
+			import qutip
+		except:
+			raise ValueError("QuTip does not appear to be available.")
+
+		def qutip_fn(expr):
+			o = self.p.optimise(expr)
+			def f(t,args):
+				return self.p(o,**args)
+			return f
+
+		def qutip_op(op):
+			if type(op) != np.ndarray:
+				op = np.array(op.tolist(),dtype=complex)
+			return qutip.Qobj(op)
+
+		H = []
+		for param, form in self.components.items():
+			if param is None:
+				H.append(qutip_op(form))
+			if self.p.is_constant(param,'t',**params):
+				H.append(self.p(param,**params)*qutip_op(form))
+			H.append([qutip_op(form), qutip_fn(param)])
+		return H
+
 	def __assemble(self, symbolic=False, params=None):
 		'''
 		This utility function does the grunt work of compiling the various components into
