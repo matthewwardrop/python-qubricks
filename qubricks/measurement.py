@@ -227,7 +227,7 @@ class Measurements(object):
 		self.__measurements = {}
 
 	def _add(self, name, measurement):
-		if not re.match('^[a-zA-Z][a-zA-Z\_]*$', name):
+		if not re.match('^[a-zA-Z][a-zA-Z0-9\_]*$', name):
 			raise ValueError("'%s' Is an invalid name for a measurement." % name)
 
 		if not isinstance(measurement, Measurement):
