@@ -39,6 +39,7 @@ class QuantumSystem(object):
 
 	def __init__(self, parameters=None, **kwargs):
 
+		self.__H = None
 		self.__derivative_ops = {}
 
 		self.__named_states = {}  # A dictionary of named states for easy recollection
@@ -62,8 +63,6 @@ class QuantumSystem(object):
 		self.setup_parameters()
 
 		self.set_hamiltonian(self.setup_hamiltonian())
-
-		self.dim = self.H().shape[0]
 
 		self.add_basis(StandardBasis(name="default", dim=self.dim, parameters=self.p))
 		self.setup_bases()
@@ -174,7 +173,14 @@ class QuantumSystem(object):
 		Set the Hamiltonian object. This can be retroactively applied after QuantumSystem
 		object creation, if one changes one's mind about which Hamiltonian to use.
 		'''
+		if len(self.__derivative_ops) > 0:
+			warnings.warn("If you are using the Hamiltonian directly in your derivative operators, \
+			you may need to reinitialise them now. Alternatively, you can implement\
+			the get_derivative_ops method instead of setup_derivative_ops.")
+
 		self.__H = h
+		if hasattr(self,'__dim'):
+			del self.__dim
 
 	def add_measurement(self, name, measurement):
 		'''
@@ -270,10 +276,20 @@ class QuantumSystem(object):
 		Hamiltonian object is simply an Operator, the Operator is simply returned
 		as is.
 		'''
+		if self.__H is None:
+			raise ValueError("Hamiltonian has not been set, and an attempt was made to access it.")
 		if isinstance(self.__H, Operator):
 			return self.__H
 		else:
 			return self.__H(*components)
+
+	@property
+	def dim(self):
+		try:
+			return self.__dim
+		except:
+			self.__dim = self.H().shape[0]
+			return self.__dim
 
 	@property
 	def bases(self):

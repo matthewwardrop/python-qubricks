@@ -29,6 +29,8 @@ class SimpleQuantumSystem(QuantumSystem):
         Initialise the Hamiltonian to be used by this QuantumSystem
         instance.
         '''
+        if self.kwargs.get('hamiltonian') is None:
+            raise ValueError("A Hamiltonian was not specified (and is required) for this system.")
         return self.Operator(self.kwargs['hamiltonian'])
 
     def setup_states(self):
