@@ -83,10 +83,18 @@ class LindbladStateOperator(StateOperator):
     '''
 
     def init(self, coefficient, operator):
+        self.optimised = False
         self.coefficient = coefficient
         self.operator = self.Operator(operator)
 
+    def optimise_coefficient(self):
+        self.coefficient = self.p.optimise(self.coefficient)
+        self.optimised = True
+
     def __call__(self, state, t=0, params={}):
+        if not self.optimised:
+            self.optimise_coefficient()
+
         O = self.operator(t=t, **params)
         Od = O.transpose().conjugate()
 

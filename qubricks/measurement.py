@@ -326,7 +326,7 @@ class MeasurementWrapper(object):
 			results = MeasurementResults(ranges, ranges_eval, data)
 		else:
 			if not struct_allclose(ranges_eval, results.ranges_eval, rtol=1e-15, atol=1e-15):
-				if not raw_input("Attempted to resume measurement collection on a result set with different parameter ranges. Continue anyway?").lower().startswith('y'):
+				if not raw_input("Attempted to resume measurement collection on a result set with different parameter ranges. Continue anyway? (y/N) ").lower().startswith('y'):
 					raise ValueError("Stopping.")
 			if type(results.results) != dict:
 				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]: data})
