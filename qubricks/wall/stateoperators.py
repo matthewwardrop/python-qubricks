@@ -83,7 +83,7 @@ class LindbladStateOperator(StateOperator):
     '''
 
     def init(self, coefficient, operator):
-        self.coefficient = coefficient
+        self.coefficient = self.p.optimise(coefficient)
         self.operator = self.Operator(operator)
 
     def __call__(self, state, t=0, params={}):
