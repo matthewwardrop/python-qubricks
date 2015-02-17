@@ -82,7 +82,7 @@ class Progress(object):
 class Integrator(object):
 	__metaclass__ = ABCMeta
 
-	def __init__(self, identifier=None, initial=None, t_offset=0, operators=None, parameters=None, op_params={}, error_rel=1e-8, error_abs=1e-8, time_ops={}, callback=None, callback_fallback=True, **kwargs):
+	def __init__(self, identifier=None, initial=None, t_offset=0, operators=None, parameters=None, op_params={}, error_rel=1e-8, error_abs=1e-8, time_ops={}, callback=None, callback_fallback=False, **kwargs):
 		# Set the identifier for this integrator instance
 		self.identifier = identifier
 
