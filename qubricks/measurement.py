@@ -299,9 +299,9 @@ class MeasurementWrapper(object):
 
 	def integrate(self, times=None, psi_0s=None, params={}, **kwargs):
 		int_kwargs = {}
-		for kwarg in kwargs:
+		for kwarg in kwargs.keys():
 			if kwarg.startswith('int_'):
-				int_kwargs[kwarg.replace[4:]] = kwargs.pop(kwarg)
+				int_kwargs[kwarg[4:]] = kwargs.pop(kwarg)
 			if kwarg in inspect.getargspec(self._system.get_integrator).args:
 				int_kwargs[kwarg] = kwargs[kwarg]
 
@@ -315,7 +315,7 @@ class MeasurementWrapper(object):
 
 		iterator = self._system.p.ranges_iterator(ranges)
 
-		kwargs['callback_fallback'] = False
+		kwargs['progress'] = False
 
 		ranges_eval, indicies = iterator.ranges_expand(masks=masks, ranges_eval=None, params=params)
 		if results is None:

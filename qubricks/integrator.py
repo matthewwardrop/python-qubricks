@@ -82,7 +82,7 @@ class Progress(object):
 class Integrator(object):
 	__metaclass__ = ABCMeta
 
-	def __init__(self, identifier=None, initial=None, t_offset=0, operators=None, parameters=None, op_params={}, error_rel=1e-8, error_abs=1e-8, time_ops={}, callback=None, callback_fallback=False, **kwargs):
+	def __init__(self, identifier=None, initial=None, t_offset=0, operators=None, parameters=None, op_params={}, error_rel=1e-8, error_abs=1e-8, time_ops={}, progress=False, **kwargs):
 		# Set the identifier for this integrator instance
 		self.identifier = identifier
 
@@ -111,7 +111,7 @@ class Integrator(object):
 		# Set up results cache
 		self.results = None
 
-		self.set_callback(callback, callback_fallback)
+		self.set_progress(progress)
 
 		self._integrator_args = kwargs
 
@@ -119,6 +119,12 @@ class Integrator(object):
 	def set_initial(self, y_0s, t_offset=0):
 		self._initial = y_0s
 		self._initial_offset = t_offset
+
+	def set_progress(self, progress):
+		if isinstance(progress,IntegratorCallback):
+			self.set_callback(progress, False)
+		else:
+			self.set_callback(None, progress)
 
 	def set_callback(self, callbackObj=None, fallback=True):
 		self._callback, self._callback_fallback = callbackObj, fallback
