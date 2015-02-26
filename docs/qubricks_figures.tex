@@ -1,0 +1,31 @@
+\documentclass{article}
+
+\usepackage{tikz}
+\usetikzlibrary{external}
+\tikzexternalize[prefix=TikzPictures/, up to date check=diff, force remake]
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\usepackage{blochsphere}
+\begin{document}
+
+  \begin{blochsphere}[radius=1.5 cm,tilt=15,rotation=-20]
+    \DrawLatitudeCircle[style={opacity=0.3}]{0}
+    \DrawLongitudeCircle[style={opacity=0.3}]{90}
+    \DrawLongitudeCircle[style={opacity=0.3}]{0}
+
+    \DrawRadialPolar{psi}{0}{0}
+    \node[above,yshift=0.2em] at (psi) {\tiny$\left|\psi\right>$};
+
+    \DrawAxis[scale=1.5,style={dashed},axisarrow={->}]{45}{0}
+    \LabelPolar[mark=0,scale=1.5]{B}{45}{0}
+    \node[above right] at (B) {\tiny $\mathbf{B}$};
+
+    \DrawTiltedLatitudeCircle[style={red,dashed}]{45}{0}{45}
+    \pgfmathsetmacro{\rad}{0.2}
+    \pgfmathsetmacro{\offset}{1.8}
+    \DrawRightRotation[scale=\rad,style={red}]{45}{0}{\offset cm}{90}
+
+  \end{blochsphere}
+\end{document}
