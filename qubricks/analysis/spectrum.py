@@ -9,7 +9,7 @@ def energy_spectrum(system, states, ranges, components=[], hamiltonian=None, inp
     belong to which eigenstates, this method does not work in cases when the adiabatic
     theorem is violated (i.e. when energy levels cross).
     '''
-    
+
     if hamiltonian is None:
         hamiltonian = system.H(*components)
     hamiltonian = hamiltonian.change_basis(system.basis(output), params=params)

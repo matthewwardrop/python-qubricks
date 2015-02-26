@@ -227,7 +227,7 @@ class Operator(object):
 		'''
 		self.__basis = basis
 
-	def change_basis(self, basis=None, threshold=False):
+	def change_basis(self, basis=None, threshold=False, params={}):
 		'''
 		Returns a copy of this Operator object expressed in the new basis. The behaviour of the
 		threshold parameter is described in the Basis.transform documentation; but this allows
@@ -236,11 +236,11 @@ class Operator(object):
 		if basis == self.__basis:
 			return self
 		elif basis is None and self.__basis is not None:
-			O = self.__basis.transform_to(self, basis=None, threshold=threshold)
+			O = self.__basis.transform_to(self, basis=None, threshold=threshold, params=params)
 		elif basis is not None and self.__basis is None:
-			O = basis.transform_from(self, basis=None, threshold=threshold)
+			O = basis.transform_from(self, basis=None, threshold=threshold, params=params)
 		else:
-			O = basis.transform_from(self, basis=self.__basis, threshold=threshold)
+			O = basis.transform_from(self, basis=self.__basis, threshold=threshold, params=params)
 		O.set_basis(basis)
 		return O
 
