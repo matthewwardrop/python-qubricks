@@ -313,11 +313,11 @@ class MeasurementWrapper(object):
 	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, yield_every=60, results=None, **kwargs):
 		# yield_every is the minimum/maximum number of seconds to go without yielding
 
-		iterator = self._system.p.ranges_iterator(ranges)
+		iterator = self._system.p.ranges_iterator(ranges, masks=masks, ranges_eval=None if results is None else results.ranges_eval, params=params, function=self.integrate, function_kwargs=kwargs, nprocs=nprocs, ranges_eval=ranges_eval)
 
 		kwargs['progress'] = False
 
-		ranges_eval, indicies = iterator.ranges_expand(masks=masks, ranges_eval=None, params=params)
+		ranges_eval, indicies = iterator.ranges_expand()
 		if results is None:
 			data = {}
 			for name, meas in self.measurements.items():
@@ -341,7 +341,7 @@ class MeasurementWrapper(object):
 		t_start = time.time()
 		data = results.results
 
-		for i, (indicies, result) in enumerate(iterator.iterate(self.integrate, function_kwargs=kwargs, params=params, masks=masks, nprocs=nprocs, ranges_eval=ranges_eval)):
+		for i, (indicies, result) in enumerate(iterator):
 			if type(result) is not dict:
 				self.measurements[self.measurements.keys()[0]]._iterate_results_add(resultsObj=data[self.measurements.keys()[0]], result=result, indicies=indicies)
 			else:
