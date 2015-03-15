@@ -313,7 +313,7 @@ class MeasurementWrapper(object):
 	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, yield_every=60, results=None, **kwargs):
 		# yield_every is the minimum/maximum number of seconds to go without yielding
 
-		iterator = self._system.p.ranges_iterator(ranges, masks=masks, ranges_eval=None if results is None else results.ranges_eval, params=params, function=self.integrate, function_kwargs=kwargs, nprocs=nprocs, ranges_eval=ranges_eval)
+		iterator = self._system.p.ranges_iterator(ranges, masks=masks, ranges_eval=None if results is None else results.ranges_eval, params=params, function=self.integrate, function_kwargs=kwargs, nprocs=nprocs)
 
 		kwargs['progress'] = False
 
