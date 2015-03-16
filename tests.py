@@ -71,9 +71,9 @@ class TestTwoLevel(unittest.TestCase):
 
 	def test_evolution(self):
 		for time in list(range(1,20)):
-			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False)['state'][0,0], self.system.ideal_integration(time, 'up'), 5)
-			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False, params={'B':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'B':0}), 5)
-			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], callback_fallback=False, params={'J':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'J':0}), 5)
+			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'])['state'][0,0], self.system.ideal_integration(time, 'up'), 5)
+			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], params={'B':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'B':0}), 5)
+			np.testing.assert_array_almost_equal(self.system.integrate([time], ['up'], params={'J':0})['state'][0,0], self.system.ideal_integration(time, 'up', params={'J':0}), 5)
 
 class TwoLevel(QuantumSystem):
 

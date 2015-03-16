@@ -18,21 +18,43 @@ except ImportError:
 
 class QuantumSystem(object):
 	'''
-	QuantumSystem (parameters=None,**kwargs)
-
-	QuantumSystem is an abstract class (which cannot therefore be instantiated)
-	which is designed to be subclassed to describe particular quantum systems.
-
-	Parameters
-	----------
-	parameters : An object which is used to initialise the parameters used
-		by this object. It can be:
-		- A string, in which case it is assumed to be a filename, and
-		  an attempt is made to import the parameters from that filename.
-		- A Parameters object
-		- None; in which case a default parameters object is constructed/
-	**kwargs : Any further keyword arguments are passed onto the
-		setup_environment(**kwarg) method.
+	QuantumSystem is an abstract base class which, when subclassed, describes
+	particular quantum systems. It is not possible to directly instantiate 
+	this class. However, all subclasses are expected to maintain all of the
+	the method signatures documented below. Apart from methods designed to 
+	facilitate wasy integration, the QuantumSystem object aims only to act
+	as a description of the QuantumSystem and the measurements that can be 
+	performed upon it.
+	
+	:param parameters: An object used to initialise a Parameters instance for use in this object.
+	:type parameters: Parameters, str or None
+	:param kwargs: Additional keyword arguments to pass to `setup_environment`.
+	:type kwargs: dict
+	
+	Specifying parameters:
+		Every QuantumSystem instance requires access to a Parameters instance
+		in order to manage the physical quantities associated with the 
+		represented quantum system. When instantiating subclasses of 
+		QuantumSystem, this is managed by passing as a value to the 
+		`parameters` keyword one of the following:
+		- A Parameters instance, which is then used directly.
+		- A string, in which case QuantumSystem attempts to load a parameters
+		  configuration from the path indicated in the string.
+		- None, in which case an empty Parameters instance is constructed.
+	
+	Subclassing:
+		A valid subclass of QuantumSystem must implement the following
+		methods::
+			
+			setup_environment(self, **kwargs)
+			setup_parameters(self)
+			setup_hamiltonian(self)
+			setup_bases(self)
+			setup_states(self)
+			setup_measurements(self)
+			setup_derivative_ops(self)
+			get_derivative_ops(self,components=None)
+			
 
 	'''
 	__metaclass__ = ABCMeta
@@ -62,7 +84,7 @@ class QuantumSystem(object):
 
 		self.setup_parameters()
 
-		self.set_hamiltonian(self.setup_hamiltonian())
+		self.set_hamiltonian(self.get_hamiltonian())
 
 		self.add_basis(StandardBasis(name="default", dim=self.dim, parameters=self.p))
 		self.setup_bases()

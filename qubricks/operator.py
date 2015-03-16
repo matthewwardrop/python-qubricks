@@ -236,7 +236,7 @@ class Operator(object):
 					R += self.p(self.__optimise(pam), **params) * self.__np(component)
 			return R
 
-	def apply(self, state, symbolic=False, left=True, params=None):
+	def apply(self, state, symbolic=False, left=True, params={}):
 		'''
 		:param state: An array with suitable dimensions for being pre- (or post-, if left is False) multipled by the Operator represented by this object.
 		:type state: numpy.array or object
@@ -257,6 +257,7 @@ class Operator(object):
 		>>> op.apply([1,2])
 		array([  5.+0.j,  11.+0.j])
 		'''
+
 		if symbolic:
 			return self.__assemble(symbolic=symbolic, params=params) * state
 		else:
