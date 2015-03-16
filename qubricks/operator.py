@@ -158,7 +158,7 @@ class Operator(object):
 					R += self.p(self.__optimise(pam), **params) * self.__np(component)
 			return R
 
-	def apply(self, state, symbolic=False, left=True, params=None):
+	def apply(self, state, symbolic=False, left=True, params={}):
 		if symbolic:
 			return self.__assemble(symbolic=symbolic, params=params) * state
 		else:
