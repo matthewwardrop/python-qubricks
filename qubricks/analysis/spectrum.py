@@ -31,8 +31,8 @@ def energy_spectrum(system, states, ranges, components=[], hamiltonian=None, inp
     evecs = evecs[:,np.argsort(evals)]
     evals = np.sort(evals)
 
-    indicies = np.argmax(np.array(states).dot(evecs),axis=1)
-    if len(set(indicies)) != len(indicies):
+    indices = np.argmax(np.array(states).dot(evecs),axis=1)
+    if len(set(indices)) != len(indices):
         warnings.warn("Could not form bijective map between states and eigenvalues. Consider changing the initial conditions. Labelling may not work.")
 
     # Now iterate over the ranges provided, allocating state labels according
@@ -60,12 +60,12 @@ def energy_spectrum(system, states, ranges, components=[], hamiltonian=None, inp
             vals[val] = rvals[val][i]
         evals = sorted(np.linalg.eigvals(hamiltonian(**vals)))
 
-        results[:len(indicies),i] = [evals[indicies[j]] for j in xrange(len(indicies))]
+        results[:len(indices),i] = [evals[indices[j]] for j in xrange(len(indices))]
         if complete:
             count = 0
             for k in xrange(system.dim):
-                if k not in indicies:
-                    results[len(indicies)+count,i] = evals[k]
+                if k not in indices:
+                    results[len(indices)+count,i] = evals[k]
                     count += 1
 
     return results

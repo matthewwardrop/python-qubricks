@@ -17,11 +17,10 @@ import unittest
 class TestBasis(unittest.TestCase):
 
 	def setUp(self):
-		self.b = SpinBasis(name="TestBasis", dim=2**3)
+		self.b = SpinBasis(dim=2**3)
 
 	def test_properties(self):
 		self.assertEqual(self.b.dim, 8)
-		self.assertEqual(self.b.name, "TestBasis")
 		self.assertIsInstance(self.b.operator, Operator)
 		self.assertEqual(len(self.b.states()), 2**3)
 
@@ -47,8 +46,8 @@ class TestOperator(unittest.TestCase):
 
 	def setUp(self):
 		self.p = Parameters()
-		self.basis_z = SimpleBasis(parameters=self.p,name='basis_z',operator=[[1,0],[0,1]])
-		self.basis_x = SimpleBasis(parameters=self.p,name='basis_x',operator=np.sqrt(2)*np.array([[1,1],[1,-1]]))
+		self.basis_z = SimpleBasis(parameters=self.p,operator=[[1,0],[0,1]])
+		self.basis_x = SimpleBasis(parameters=self.p,operator=np.sqrt(2)*np.array([[1,1],[1,-1]]))
 
 	def test_arithmetic(self):
 		op1 = Operator([[1,0],[0,1]])
@@ -77,22 +76,22 @@ class TestTwoLevel(unittest.TestCase):
 
 class TwoLevel(QuantumSystem):
 
-	def setup_environment(self, **kwargs):
+	def init(self, **kwargs):
 		pass
 
-	def setup_parameters(self):
+	def init_parameters(self):
 		self.p << {'c_hbar': 1.0}
 
 		self.p.B = 1
 		self.p.J = 1
 
-	def setup_bases(self):
+	def init_bases(self):
 		pass
 
-	def setup_hamiltonian(self):
+	def init_hamiltonian(self):
 		return self.Operator( {'J': np.array([[0,1],[1,0]]),'B':np.array([[1,0],[0,-1]])})
 
-	def setup_states(self):
+	def init_states(self):
 		'''
 		Add the named/important states to be used by this quantum system.
 		'''
@@ -101,7 +100,7 @@ class TwoLevel(QuantumSystem):
 		self.add_state("+",np.array([1,1])/math.sqrt(2))
 		self.add_state("-",np.array([1,-1])/math.sqrt(2))
 
-	def setup_measurements(self):
+	def init_measurements(self):
 		'''
 		Add the measurements to be used by this quantum system instance.
 		'''
@@ -111,7 +110,7 @@ class TwoLevel(QuantumSystem):
 	def default_derivative_ops(self):
 		return ['evolution']
 
-	def setup_derivative_ops(self):
+	def init_derivative_ops(self):
 		'''
 		Setup the derivative operators to be implemented on top of the
 		basic quantum evolution operator.

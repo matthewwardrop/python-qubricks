@@ -15,7 +15,7 @@ class AmplitudeMeasurement(Measurement):
     def result_type(self, *args, **kwargs):
         return [
                     ('time', float),
-                    ('amplitude', float, (self._system.dim,))
+                    ('amplitude', float, (self.system.dim,))
                 ]
 
     def result_shape(self, *args, **kwargs):
@@ -114,7 +114,7 @@ class LeakageMeasurement(Measurement):
             raise ValueError("Subspace must be non-empty")
 
         if self.__P is None:
-            self.__P = self._system.subspace_projector(subspace, invert=True, output=output, params=params)
+            self.__P = self.system.subspace_projector(subspace, invert=True, output=output, params=params)
         P = self.__P
         if len(state.shape) > 1:
             return np.trace(np.dot(np.dot(P, state), P))

@@ -20,11 +20,11 @@ class DummyStateOperator(StateOperator):
     def transform(self, transform_op):
         return self
 
-    def restrict(self, *indicies):
+    def restrict(self, *indices):
         return self
 
-    def connected(self, *indicies, **params):
-        return set(indicies)
+    def connected(self, *indices, **params):
+        return set(indices)
 
     def collapse(self, *wrt, **params):
         return self
@@ -58,11 +58,11 @@ class SchrodingerStateOperator(StateOperator):
     def transform(self, transform_op):
         return SchrodingerStateOperator(self.p, H=transform_op(self.H))
 
-    def restrict(self, *indicies):
-        return SchrodingerStateOperator(self.p, H=self.H.restrict(*indicies))
+    def restrict(self, *indices):
+        return SchrodingerStateOperator(self.p, H=self.H.restrict(*indices))
 
-    def connected(self, *indicies, **params):
-        return self.H.connected(*indicies, **params)
+    def connected(self, *indices, **params):
+        return self.H.connected(*indices, **params)
 
     def collapse(self, *wrt, **params):
         return SchrodingerStateOperator(self.p, H=self.H.collapse(*wrt, **params), basis=self.basis)
@@ -103,12 +103,12 @@ class LindbladStateOperator(StateOperator):
     def transform(self, transform_op):
         return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=transform_op(self.operator))
 
-    def restrict(self, *indicies):
-        return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.restrict(*indicies))
+    def restrict(self, *indices):
+        return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.restrict(*indices))
         # No basis reported since that does not make sense when restricted
 
-    def connected(self, *indicies, **params):
-        return self.operator.connected(*indicies, **params)
+    def connected(self, *indices, **params):
+        return self.operator.connected(*indices, **params)
 
     def collapse(self, *wrt, **params):
         return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.collapse(*wrt, **params), basis=self.basis)

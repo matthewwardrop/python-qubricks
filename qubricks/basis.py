@@ -12,87 +12,93 @@ from .operator import Operator
 
 class Basis(object):
 	'''
-	Basis(name="",dim=None,parameters=None,**kwargs)
+	A Basis instance describes a particular basis, and allows transformations
+	of objects (such as `Operator`s) from one basis to another. A Basis 
+	is an abstract class, and must be subclassed to be useful.
+	
+	:param dim: The dimension of the basis. If not specified, the dimension will
+		be extracted from the Operator returned by Basis.operator; except during 
+		`Basis.init`, where `Basis.dim` will return the raw value stored (e.g. None).
+	:type dim: int or None
+	:param parameters: A Parameters instance, if required.
+	:type parameters: parameters.Parameters
+	:param kwargs: Additional keyword arguments to pass to `Basis.init`.
+	:type kwargs: dict
 
-	An object that represents a choice of basis for the QuBricks library.
-	Basis objects allow one to transform state vectors between bases, and
-	to represent state vectors in strings. Basis is an abstract class, and
-	must be inherited to be used.
-
-	Parameters
-	----------
-	name : A friend name to be used when error messages are returned to the
-		user.
-	dim : The dimension of the basis. If not specified, the dimension will
-		be extracted from the Operator returned by Basis.operator.
-	parameters : A Parameters instance; which can be shared between all basis
-		(and other) objects.
-	kwargs : Extra arguments that are passed to the __basis_init function.
-
-	Subclasses
-	----------
-	In order to create a Basis object, one must create a new class that
-	inherits from Basis, and implements at least the following abstract
-	methods:
-	- Basis.__basis_init__
-	- Basis.operator
-	Optionally, one can also implement:
-	- Basis.state_toString
-	- Basis.state_fromString
-	- Basis.state_latex
-
-	Documentation for all of the methods of Basis is provided inline.
+	Subclassing Basis:
+		Subclasses of Basis must implement the following methods, which function according to 
+		their respective documentation below:
+		- init
+		- operator
+		Subclasses may optionally implement:
+		- state_info
+		- state_toString
+		- state_fromString
+		- state_latex
+		These latter methods are used to allow convenient conversion of strings to states
+		and also later representation of states as strings/LaTeX. Otherwise, these
+		methods are not required. Since they are not used except when the user desires
+		to change the state's representation, the implementer has a lot of freedom
+		about the way these functions work, and what they return. The documentation
+		for these methods indicates the way in which the original author intended
+		for them to function.
 	'''
 	__metaclass__ = ABCMeta
 
-	def __init__(self, name="", dim=None, parameters=None, **kwargs):
-		self.__name = name
-		self.__dim = dim
-		self.__p = parameters
-		self.init(dim=dim, **kwargs)
+	def __init__(self, dim=None, parameters=None, **kwargs):
+		self.dim = dim
+		self.p = parameters
+		
+		self._basis_initialising = True
+		self.init(**kwargs)
+		del self._basis_initialising
 
 	@abstractmethod
-	def init(self, dim=None, **kwargs):
+	def init(self, **kwargs):
 		'''
-		Basis.init_basis is called during the basis initialisation
-		routines, allowing Basis subclasses to initialise themselves.
+		This method should do whatever is necessary to prepare the
+		Basis instance for use. When this method is called by the 
+		Python __init__ method, you can use `Basis.dim` to access
+		the raw value of `dim`. If `dim` is necessary to construct 
+		the operator, and it is not set, this method should raise an
+		exception. All keyword arguments except `dim` and `parameters`
+		passed to the `Basis` instance constructor will also be passed to 
+		this method. 
 		'''
 		pass
 
-	@property
-	def name(self):
-		'''
-		A friendly name to be used in errors and user-facing messages.
-		'''
-		return self.__name
-	@name.setter
-	def name(self, name):
-		self.__name = name
-
 	def __repr__(self):
-		return "<%s(Basis) '%s'>" % (self.__class__.__name__, self.name)
+		return "<%s(Basis) of dimension %d>" % (self.__class__.__name__, self.dim)
 
 	@property
 	def dim(self):
 		'''
 		The dimension of the basis; or equivalently, the number of basis states.
 		'''
-		if self.__dim == None:
+		if self.__dim == None and not getattr(self,'_basis_initialising',False):
 			self.__dim = self.operator().shape[0]
 		return self.__dim
+	@dim.setter
+	def dim(self, dim):
+		try:
+			if self.__dim is not None:
+				raise ValueError("Attempt to change Basis dimension after initialisation. This is not supported.")
+		except AttributeError:
+			pass
+		self.__dim = int(dim) if dim is not None else None
 
 	@property
 	def p(self):
 		'''
-		A reference to the Parameters instance used by the Operator objects.
+		A reference to the Parameters instance used by this object.
 		'''
 		if self.__p is None:
 			raise ValueError("Parameters instance required by Basis object, a Parameters object has not been configured.")
 		return self.__p
 	@p.setter
 	def p(self, parameters):
-		if not isinstance(parameters, Parameters):
-			raise ValueError("Parameters reference must be an instance of Parameters.")
+		if parameters is not None and not isinstance(parameters, Parameters):
+			raise ValueError("Parameters reference must be an instance of Parameters or None.")
 		self.__p = parameters
 
 	def __p_ref(self):
@@ -102,26 +108,50 @@ class Basis(object):
 		cannot be used directly, but is used by the StateOperator.Operator method.
 		'''
 		return self.__p
+	
+	def Operator(self, components, basis=None, exact=False):
+		'''
+		This method is a shorthand for constructing Operator objects which refer
+		to the same Parameters instance as this Basis instance.
 
-	def Operator(self, operator):
-		if not isinstance(operator, Operator):
-			operator = Operator(operator)
+		:param components: Specification for Operator.
+		:type components: Operator, dict, numpy.ndarray or sympy.MatrixBase
+		:param basis: The basis in which the Operator is represented.
+		:type basis: Basis or None
+		:param exact: True if Operator should maintain exact representations of numbers,
+			and False otherwise.
+		:type exact: bool
+
+		If *components* is already an Operator object, it is returned with its
+		Parameters reference updated to point the Parameters instance associated
+		with this Basis instance. Otherwise, a new Operator is constructed according
+		to the specifications, again with a reference to this Basis's
+		Parameters instance.
+		
+		For more information, refer to the documentation for Operator.
+		'''
+		if not isinstance(components, Operator):
+			operator = Operator(components)
 		operator.p = self.__p_ref
 		return operator
 
 	@abstractproperty
 	def operator(self):
 		'''
-		Basis.operator must return an Operator object with basis states as the
-		columns. The operator should use the parameters instance provided by the
-		Basis subclass.
+		This method should return a two dimensional `Operator` object, with basis states as 
+		columns. The `Operator` object should use the `Parameters` instance provided by the
+		Basis instance. The simplest way to ensure this is to use the `Basis.Operator` method.
 		'''
 		raise NotImplementedError("Basis operator has not been implemented.")
 
 	def states(self, **params):
 		'''
-		Returns the columns of Basis.operator (after evaluations with the
-		parameters in `params`) as list. These are the "basis states".
+		This method returns the basis states (columns of the `Operator` returned by 
+		`basis.operator`) as a list. The Operator is first evaluated with the 
+		parameter overrides in params.
+		
+		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:type params: dict
 		'''
 		i = xrange(self.dim)
 		O = self.operator(**params)
@@ -129,42 +159,71 @@ class Basis(object):
 
 	def state_info(self, state, params={}):
 		'''
-		Basis.state_info can be optionally implemented by subclasses to provide
-		further information about states in this basis.
+		This method (if implemented) should return a dictionary with more information
+		about the state provided. There are no further constraints upon what might be
+		returned.
+		
+		:param state: The state about which information should be returned.
+		:type state: str or iterable
+		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:type params: dict
 		'''
 		return NotImplementedError("Basis.state_info has not been implemented.")
 
 	def state_toString(self, state, params={}):
 		'''
-		Basis.state_toString can be optionally implemented by subclasses to provide
-		a mapping from states in this basis to strings.
+		This method (if implemented) should return a string representation of the
+		provided state, which should then be able to be converted back into the same
+		state using `Basis.state_fromString`.
+		
+		:param state: The state which should be represented as a string.
+		:type state: iterable
+		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:type params: dict
 		'''
 		raise NotImplementedError("Basis.state_toString has not been implemented.")
 
 	def state_fromString(self, string, params={}):
 		'''
-		Basis.state_fromString can be optionally implemented by subclasses to provide
-		a mapping from strings to states in this basis.
+		This method (if implemented) should return the state as a numerical array that 
+		is represented as a string in `string`. Calling `basis.state_toString` should then
+		return the same (or equivalent) string representation.
+		
+		:param string: A string representation of a state.
+		:type state: str
+		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:type params: dict
 		'''
 		raise NotImplementedError("Basis.state_fromString has not been implemented.")
 
 	def state_latex(self, state, params={}):
 		'''
-		Basis.state_info can be optionally implemented by subclasses to provide
-		a latex representation of states in this basis.
+		This method (if implemented) should return string that when compiled by
+		LaTeX would represent the state.
+		
+		:param state: The state which should be represented as a string.
+		:type state: iterable
+		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:type params: dict
 		'''
 		raise NotImplementedError("Basis.state_latex has not been implemented.")
 
 	def state_toSymbolic(self, state):
 		'''
-		Basis.state_toSymbolic converts state objects to symbolic representations.
+		This method is a stub, and may be implemented in the future to provide the 
+		logical inverse of `Basis.state_fromSymbolic`.
 		'''
-		raise NotImplementedError("Symbolic conversion has not yet been implemented.")
+		raise NotImplementedError("Conversion of a state to a symbolic representation has not yet been implemented.")
 
 	def state_fromSymbolic(self, expr):
 		'''
-		Basis.state_fromSymbolic converts symbolic representations of states into
-		numerical state vectors.
+		This method converts a sympy representation of a quantum state into
+		an array or vector (as used by QuBricks). It uses internally `Basis.state_fromString` 
+		to recognise ket and bra names, and to substitute them appropriately with the right
+		state vectors.
+		
+		.. warning:: Support for conversion from symbolic representations is not fully
+			baked, but seems to work reasonably well.
 		'''
 
 		r = np.array(sq.represent(expr, basis=self.__sympy_basis).tolist(), dtype=object)
@@ -190,22 +249,40 @@ class Basis(object):
 	# Transform vector and matrix elements from the standard basis to this basis
 	def transform(self, state, inverse=False, threshold=False, params={}):
 		'''
-		Basis.transform allows one to transform states from the standard basis to
+		This method allows one to transform states from the standard basis to
 		this basis; or, if the inverse flag is provided, to transform from this
 		basis to the standard basis. This is chained in the Basis.transform_to and
 		Basis.transform_from methods to convert states between bases. State objects
 		can be Operator or numpy array objects; and can be one or two dimensional.
-		The basis states are evaluated at `params` before being used in this method.
-		If threshold is False, no attempts to neaten the transformed state are made.
+		The basis states are evaluated in the parameter context specified in `params` 
+		before being used in this method.
+		
+		This method can automatically try to set elements in the transformed object that 
+		are different from zero by some small amount to zero, in the hope of ignoring 
+		numerical error. If threshold is `False`, no attempts to clean the transformed state are made.
 		If a numerical threshold is provided, any elements of the resulting
 		transformed state with amplitude less than the supplied value will be set
 		to zero. If threshold is set to True, the transformation operation attempts
-		to determine the threshold automatically. One should use this feature with
+		to determine the threshold automatically. This automatic algorithm looks 
+		for the smallest entry in `Basis.operator` and then multiplies it by 10**-8. 
+		This value is then used as the threshold. One should use this feature with
 		caution.
+		
+		:param state: The state to be transformed.
+		:type state: 1D or 2D Operator or numpy.ndarray
+		:param inverse: `True` for transformation from this basis to the standard basis,
+			and `False` for transformation to this basis from the standard basis.
+		:type inverse: bool
+		:param threshold: True or False to specify that the threshold should be automatically
+			determined or not used respectively. If a float is provided, that value is used as
+			the threshold.
+		:type threshold: bool or float
+		:param params: The parameter overrides to use during the transformation (see `Operator`).
+		:type params: dict
 		'''
 
 		if isinstance(state, Operator):
-			self.operator.set_basis('*')
+			self.operator.basis = "*"
 
 			if len(state.shape) == 1:
 				if inverse:
@@ -299,9 +376,20 @@ class Basis(object):
 
 	def transform_from(self, state, basis=None, threshold=False, params={}):
 		'''
-		Basis.transform_from transforms states from the basis specified to this
-		basis. `basis` must be a Basis instance itself. The other parameters
-		are described in the Basis.transform method.
+		This method transforms the given state to this basis from the basis provided in
+		`basis` (which must be a Basis instance). If `basis` is note provided, the 
+		standard basis is assumed.
+		
+		:param state: The state to be transformed.
+		:type state: 1D or 2D Operator or numpy.ndarray
+		:param basis: The basis into which the state should be transformed.
+		:type basis: Basis or None
+		:param threshold: True or False to specify that the threshold should be automatically
+			determined or not used respectively. If a float is provided, that value is used as
+			the threshold.
+		:type threshold: bool or float
+		:param params: The parameter overrides to use during the transformation (see `Operator`).
+		:type params: dict
 		'''
 		if basis is not None:
 			if not isinstance(basis, Basis):
@@ -312,9 +400,20 @@ class Basis(object):
 
 	def transform_to(self, state, basis=None, threshold=False, params={}):
 		'''
-		Basis.transform_to transforms states to the basis specified from this
-		basis. `basis` must be a Basis instance itself. The other parameters
-		are described in the Basis.transform method.
+		This method transforms the given state from this basis to the basis provided in
+		`basis` (which must be a Basis instance). If `basis` is note provided, the 
+		standard basis is assumed.
+		
+		:param state: The state to be transformed.
+		:type state: 1D or 2D Operator or numpy.ndarray
+		:param basis: The basis into which the state should be transformed.
+		:type basis: Basis or None
+		:param threshold: True or False to specify that the threshold should be automatically
+			determined or not used respectively. If a float is provided, that value is used as
+			the threshold.
+		:type threshold: bool or float
+		:param params: The parameter overrides to use during the transformation (see `Operator`).
+		:type params: dict
 		'''
 		if basis is not None:
 			if not isinstance(basis, Basis):
@@ -323,17 +422,33 @@ class Basis(object):
 
 		return self.transform(state, inverse=True, threshold=threshold, params=params)
 
-	def transform_op(self, basis=None, invert=False, threshold=False, params={}):
+	def transform_op(self, basis=None, inverse=False, threshold=False, params={}):
 		'''
-		Basis.transform_op returns a lambdified function which can be later applied to
-		states independently of this Basis instance. If basis is not provided, the
+		This method returns a function which can be used to transform any 1D or 2D 
+		`Operator` or numpy array to (from) this basis from (to) the basis provided 
+		in `basis`, if `inverse` is False (True). If basis is not provided, the
 		standard basis is assumed.
-
-		e.g.
+		
+		:param state: The state to be transformed.
+		:type state: 1D or 2D Operator or numpy.ndarray
+		:param basis: The basis into which the state should be transformed.
+		:type basis: Basis or None
+		:param inverse: `True` for transformation from this basis to the `basis` provided,
+			and `False` for transformation to this basis from the the `basis` provided.
+		:type inverse: bool
+		:param threshold: True or False to specify that the threshold should be automatically
+			determined or not used respectively. If a float is provided, that value is used as
+			the threshold.
+		:type threshold: bool or float
+		:param params: The parameter overrides to use during the transformation (see `Operator`).
+		:type params: dict
+		
+		For example:
+		
 		>>> f = Basis.transform_op()
 		>>> state_transformed = f(state)
 		'''
-		if invert:
+		if inverse:
 			return lambda y: self.transform_to(y, basis=basis, threshold=threshold, params=params)
 		return lambda y: self.transform_from(y, basis=basis, threshold=threshold, params=params)
 
@@ -341,11 +456,29 @@ class Basis(object):
 
 
 class QubricksBasis(sq.Operator):
+	'''
+	This object is used internally to support symbolic representations of states.
+	'''
 	pass
 
 
 # TODO: Flesh out sympy symbolic representation
 class QubricksKet(sq.Ket):
+	'''
+	This object is used to represent states analytically.
+	
+	For example:
+	
+	>>> ket = QubricksKet('0')
+	
+	These objects then obey standard arithmetic, for example:
+	
+	>>> 2*ket
+	2|0>
+	
+	You can convert from a symbolic representation of states
+	to a QuBricks array using `Basis.state_fromSymbolic`.
+	'''
 	def _represent_QubricksBasis(self, basis, **options):
 		if getattr(basis, 'qubricks') is None:
 			raise ValueError("The `qubricks` attribute must be set on the basis object for ket representation.")
@@ -385,6 +518,21 @@ class QubricksKet(sq.Ket):
 
 
 class QubricksBra(sq.Bra):
+	'''
+	This object is used to represent states analytically.
+	
+	For example:
+	
+	>>> bra = QubricksBra('0')
+	
+	These objects then obey standard arithmetic, for example:
+	
+	>>> 2*bra
+	2<0|
+	
+	You can convert from a symbolic representation of states
+	to a QuBricks array using `Basis.state_fromSymbolic`.
+	'''
 
 	@classmethod
 	def dual_class(self):

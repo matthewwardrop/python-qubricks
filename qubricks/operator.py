@@ -205,10 +205,13 @@ class Operator(object):
 
 	def symbolic(self, **params):
 		'''
+		This method returns a symbolic representation of the Operator object,
+		as documented in the general class documentation.
+
 		:param params: A dictionary of parameter overrides.
 		:type params: dict
 
-		Use of this method is as documented in the general class documentation. For example:
+		For example:
 
 		>>> op.symbolic(x=2,y='sin(x)')
 		'''
@@ -238,6 +241,10 @@ class Operator(object):
 
 	def apply(self, state, symbolic=False, left=True, params={}):
 		'''
+		This method returns the object resulting from multiplication by this Operator
+		without ever fully constructing the Operator; making it potentially a little
+		faster.
+
 		:param state: An array with suitable dimensions for being pre- (or post-, if left is False) multipled by the Operator represented by this object.
 		:type state: numpy.array or object
 		:param symbolic: :code:`True` if multiplication should be done symbolically using sympy, and :code:`False` otherwise (uses numpy).
@@ -246,10 +253,6 @@ class Operator(object):
 		:type left: bool
 		:param params: A dictionary of parameter overrides.
 		:type params: dict
-
-		This method returns the object resulting from multiplication by this Operator
-		without ever fully constructing the Operator; making it potentially a little
-		faster.
 
 		For example:
 
@@ -323,6 +326,11 @@ class Operator(object):
 
 	def change_basis(self, basis=None, threshold=False, params={}):
 		'''
+		This method returns a copy of this Operator object expressed in the new basis. The threshold
+		parameter allows elements in the resulting Operator which differ from zero
+		only by numerical noise to be set to zero. For more information, refer
+		to the documentation for Basis.transform.
+
 		:param basis: The basis in which to represent this Operator.
 		:type basis: Basis or None
 		:param threshold: A boolean indicating whether to threshold to minimise numerical error, or a float indicating the threshold level.
@@ -331,11 +339,6 @@ class Operator(object):
 		:type params: dict
 
 		:returns: A reference to the transformed Operator.
-
-		Returns a copy of this Operator object expressed in the new basis. The threshold
-		parameter allows elements in the resulting Operator which differ from zero
-		only by numerical noise to be set to zero. For more information, refer
-		to the documentation for Basis.transform.
 		'''
 		if basis == self.__basis:
 			return self
@@ -350,13 +353,13 @@ class Operator(object):
 
 	def transform(self, transform_op=None):
 		'''
-		:param transform_op: A function which maps numpy.ndarray and sympy.MatrixBase instances to themselves, potentially with some transformation.
-		:type transform_op: callable
-
 		This method returns a copy of this Operator instance with its components transformed according
 		to the supplied transform_op function. This can effect a basis transformation without
 		providing any information as to the basis of the new Operator. If you want to transform
-		basis, you are better using: Operator.change_basis.
+		basis, it is probably better you use: Operator.change_basis.
+
+		:param transform_op: A function which maps numpy.ndarray and sympy.MatrixBase instances to themselves, potentially with some transformation.
+		:type transform_op: callable
 		'''
 		O = {}
 		if transform_op is not None:
@@ -366,16 +369,16 @@ class Operator(object):
 
 	############## Subspace methods ###################################################
 
-	def connected(self, *indicies, **params):
+	def connected(self, *indices, **params):
 		'''
-		:param indicies: A sequence of zero-indexed indicies to test for connectedness.
-		:type indicies: tuple
+		This method returns a set of indices that represents the rows/columns that mix
+		with the specified indices if this operator were to be multiplied by itself. This method
+		requires that the Operator object be square.
+
+		:param indices: A sequence of zero-indexed indices to test for connectedness.
+		:type indices: tuple
 		:param params: A parameter override context.
 		:type params: dict
-
-		This method returns a set of indicies that represents the rows/columns that mix
-		with the specified indicies if this operator were to be multiplied by itself. This method
-		requires that the Operator object be square.
 
 		For example:
 
@@ -388,26 +391,26 @@ class Operator(object):
 		if len(self.shape) != 2 or self.shape[0] != self.shape[1]:
 			raise ValueError("Operator not square. Connectedness only works when Operators are square. %s" % self.components)
 
-		new = set(indicies)
+		new = set(indices)
 
 		for key, component in self.components.items():
 			component = np.array(component)
 			if key is None or not (not self.exact and self.p.is_resolvable(key, **params) and self.p(key, **params) == 0):
-				for index in indicies:
+				for index in indices:
 					new.update(np.where(np.logical_or(component[:, index] != 0, component[index, :] != 0))[0].tolist())
 
-		if len(new.difference(indicies)) != 0:
+		if len(new.difference(indices)) != 0:
 			new.update(self.connected(*new, **params))
 
 		return new
 
-	def restrict(self, *indicies):
+	def restrict(self, *indices):
 		'''
-		:param indicies: A sequence of zero-indexed indicies which correspond to the rows/columns to keep.
-		:type indices: tuple
-
 		This method returns a copy of the Operator restricted to the basis elements specified
-		as row/column indicies. This method requires that the shape of the Operator is square.
+		as row/column indices. This method requires that the shape of the Operator is square.
+
+		:param indices: A sequence of zero-indexed indices which correspond to the rows/columns to keep.
+		:type indices: tuple
 
 		For example:
 
@@ -424,21 +427,21 @@ class Operator(object):
 		for pam, component in self.components.items():
 
 			if type(component) != np.ndarray:
-				new = type(component)(np.zeros( (len(indicies), len(indicies)) ))
+				new = type(component)(np.zeros( (len(indices), len(indices)) ))
 			else:
-				new = np.zeros( (len(indicies),len(indicies)), dtype=component.dtype )
+				new = np.zeros( (len(indices),len(indices)), dtype=component.dtype )
 
 			# Do basis index sweeping to allow for duck-typing
-			for i, I in enumerate(indicies):
-				for j, J in enumerate(indicies):
+			for i, I in enumerate(indices):
+				for j, J in enumerate(indices):
 					new[i, j] = component[I, J]
 
 			components[pam] = new
 
 			#if type(component) != np.ndarray:
-			#	components[pam] = np.reshape(component[np.kron([1]*len(indicies),indicies),np.kron(indicies,[1]*len(indicies))],(len(indicies),len(indicies)))
+			#	components[pam] = np.reshape(component[np.kron([1]*len(indices),indices),np.kron(indices,[1]*len(indices))],(len(indices),len(indices)))
 			#else:
-			#	components[pam] = component[tuple(indicies),tuple(indicies)]
+			#	components[pam] = component[tuple(indices),tuple(indices)]
 
 		return self._new(components)
 
@@ -458,13 +461,13 @@ class Operator(object):
 
 	def clean(self, threshold):
 		'''
-		:param threshold: A threshold value.
-		:param type: float
-
 		This method zeroes out all elements of the components which
 		are different from zero only by a magnitude less than `threshold`. One must
 		use this function with caution, as it does not take into account the value
 		of the parameter multiplying the matrix form.
+
+		:param threshold: A threshold value.
+		:param type: float
 		'''
 		for key in self.components:
 			ind = np.where(np.abs(self.__np(self.components[key])) < threshold)
@@ -547,10 +550,11 @@ class Operator(object):
 
 	def tensor(self, other):
 		'''
+		This method returns a new Operator object that is the component-wise tensor
+		(or Kronecker) product of this Operator with *other*.
+
 		:param other: Another Operator with which to perform the tensor product
 		:type other: Operator
-
-		:returns: a new Operator object, with component-wise tensor (or Kronecker) product; and with parameter coefficients updated as required.
 		'''
 		components = {}
 
@@ -567,28 +571,25 @@ class Operator(object):
 
 	def inverse(self):
 		'''
-		:returns: An Operator object which is the inverse of this one.
-
-		This method computes the inverse of the Operator object. This may be very slow. If you do not need a
-		symbolic inversion, then simply call the Operator object and take a numerical inverse using
+		This method computes and returns the inverse of the Operator object. This may be very slow. If you do not need a
+		symbolic inversion, then simply numerically evaluate the Operator object and take a numerical inverse using
 		numpy.
 		'''
 		return self._new(self.symbolic().pinv())
 
 	def collapse(self, *wrt, **params):
 		'''
+		This method returns a new Operator object that is a simplification of this one.
+		It collapses and simplifies this Operator object by assuming certain parameters are going
+		to be fixed and non-varying. As many parameters as possible are collapsed into the constant component
+		of the operator. All other entries are analytically simplified as much as possible.
+		If no parameters are specified, then only the simplification is performed. A full collapse
+		to a numerical matrix should be achieved by evaluating it numerically, as described in the class description.
+
 		:param wrt: A sequence of parameter names.
 		:type wrt: tuple
 		:param params: Parameter overrides.
 		:type params: dict
-
-		:returns: An Operator object reduced as far as possible into a numeric array.
-
-		This method collapses and simplifies an Operator object on the basis that certain parameters are going
-		to be fixed and non-varying. As many parameters as possible are collapsed into the constant component
-		of the operator. All other entries are simplified as much as possible, and then maintained in a new Operator
-		object. If no parameters are specified, then only the simplification is performed. A full collapse
-		to a numerical matrix should be achieved by evaluating it numerically, as described in the class description.
 
 		For example:
 
@@ -725,6 +726,11 @@ class OperatorSet(object):
 
 	def apply(self, state, symbolic=False, left=True, params=None, components=None):
 		'''
+		This method applies the Operator.apply method from each of the stored Operators, and
+		sums up their results. The only difference from the Operator.apply method
+		is the `components` keyword, which allows you to specify which operators are used. If
+		`components` is not specified, then the default components are used.
+
 		:param state: An array with suitable dimensions for being pre- (or post-, if left is False) multipled by the Operator represented by this object.
 		:type state: numpy.array or object
 		:param symbolic: :code:`True` if multiplication should be done symbolically using sympy, and :code:`False` otherwise (uses numpy).
@@ -735,11 +741,6 @@ class OperatorSet(object):
 		:type params: dict
 		:param components: A list of components to use.
 		:type components: iterable
-
-		This method applies the Operator.apply method from each of the stored Operators, and
-		sums up their results. The only difference from the Operator.apply method
-		is the `components` keyword, which allows you to specify which operators are used. If
-		`components` is not specified, then the default components are used.
 		'''
 		if components is None or len(components) == 0:
 			if self.defaults is not None:

@@ -1,17 +1,18 @@
 from abc import ABCMeta, abstractmethod
-from sympy.core.cache import clear_cache as sympy_clear_cache
 import math
-import numpy as np
 import sys
 import types
 import warnings
+
+from sympy.core.cache import clear_cache as sympy_clear_cache
+
+import numpy as np
+from parameters import Parameters
 
 from .operator import Operator
 from .stateoperator import StateOperator
 
 
-# TODO: Document this function.
-# TODO: Make private all functions which don't need to be public
 class IntegratorCallback(object):
 
 	#
@@ -77,131 +78,294 @@ class Progress(object):
 		self.callback = None
 
 
-#
-# Integrator object
 class Integrator(object):
+	'''
+	
+	'''
 	__metaclass__ = ABCMeta
 
-	def __init__(self, identifier=None, initial=None, t_offset=0, operators=None, parameters=None, op_params={}, error_rel=1e-8, error_abs=1e-8, time_ops={}, progress=False, **kwargs):
-		# Set the identifier for this integrator instance
+	def __init__(self,
+				identifier=None,
+				initial=None,
+				t_offset=0, 
+				operators=None, 
+				parameters=None, 
+				params={}, 
+				error_rel=1e-8, 
+				error_abs=1e-8, 
+				time_ops={}, 
+				progress=False, 
+				**kwargs):
+		
 		self.identifier = identifier
-
+		
 		# Set up initial conditions
-		self.set_initial(initial, t_offset)
+		self.initial = initial
+		self.t_offset = t_offset
 
 		# Parameter Object
-		self._p = parameters
+		self.p = parameters
+		
+		# Set solver and tolerances
+		self.error_abs = error_abs
+		self.error_rel = error_rel
 
 		# Set up integration operator
-		self._operators = []
-		self._operators_params = {}
-		if isinstance(operators, list):
-			self.add_operators(*operators)
-		else:
-			self.add_operators(operators)
-		self.add_op_params(**op_params)
+		self.operators = operators
+		self.params = params
 
 		# Set up intermediate pulse operators
-		self._time_ops = {}
-		self.add_time_ops(**time_ops)
-
-		# Set solver and tolerances
-		self.set_error(error_rel, error_abs)
+		self.time_ops = time_ops
 
 		# Set up results cache
 		self.results = None
 
-		self.set_progress(progress)
-
-		self._integrator_args = kwargs
-
+		self.progress_callback = progress
+		
+		self.int_kwargs = kwargs
+	
+	@property
+	def p(self):
+		'''
+		A reference to the Parameters instance used by this object.
+		'''
+		if self.__p is None:
+			raise ValueError("Parameters instance required by Integrator object, but a Parameters object has not been configured.")
+		return self.__p
+	@p.setter
+	def p(self, parameters):
+		if parameters is not None and not isinstance(parameters, Parameters):
+			raise ValueError("Parameters reference must be an instance of Parameters or None.")
+		self.__p = parameters
+	
 	########### CONFIGURATION ##############################################
-	def set_initial(self, y_0s, t_offset=0):
-		self._initial = y_0s
-		self._initial_offset = t_offset
-
-	def set_progress(self, progress):
-		if isinstance(progress,IntegratorCallback):
-			self.set_callback(progress, False)
-		else:
-			self.set_callback(None, progress)
-
-	def set_callback(self, callbackObj=None, fallback=True):
-		self._callback, self._callback_fallback = callbackObj, fallback
-
-	def set_error(self, rel=1e-8, abs=1e-8):
-		self._error_rel = rel
-		self._error_abs = abs
-
-	def add_time_ops(self, **kwargs):
-		for time, op in kwargs.items():
-			if not isinstance(op, StateOperator):
-				raise ValueError("Operator must be an instance of State Operator.")
-			self._time_ops[time] = op
-
-	def add_operators(self, *args):
-		for arg in args:
-			if not isinstance(arg, StateOperator):
-				raise ValueError("Operator must be an instance of State Operator.")
-			self._operators.append(arg)
-
-	def add_op_params(self, **kwargs):
-		self._operators_params.update(kwargs)
-
+	
+	@property
+	def initial(self):
+		'''
+		The initial state. Can be set using:
+		
+		>>> integrator.initial = <list of states>
+		'''
+		return self.__initial
+	@initial.setter
+	def initial(self, initial):
+		self.__initial = initial
+	
+	@property
+	def t_offset(self):
+		'''
+		The initial time to use in the integration. Ignored in `Integrator.extend`.
+		Can be set using:
+		
+		>>> integrator.t_offset = <time>
+		'''
+		return self.__t_offset
+	@t_offset.setter
+	def t_offset(self, t_offset):
+		self.__t_offset = t_offset
+	
+	@property
+	def error_rel(self):
+		'''
+		The maximum relative error permitted in the integrator. This can be set using:
+		
+		>>> integrator.error_rel = <float>
+		'''
+		return self.__error_rel
+	@error_rel.setter
+	def error_rel(self, error_rel):
+		self.__error_rel = error_rel
+	
+	@property
+	def error_abs(self):
+		'''
+		The maximum absolute error permitted in the integrator. This can be set using:
+		
+		>>> integrator.error_abs = <float>
+		'''
+		return self.__error_abs
+	@error_abs.setter
+	def error_abs(self, error_abs):
+		self.__error_abs = error_abs
+	
+	@property
+	def results(self):
+		'''
+		The currently stored results. Used to continue integration in `Integrator.extend`. While
+		it is possible to overwrite the results, the new value is not checked, and care should be taken.
+		
+		>>> integrator.results = <valid results object>
+		'''
+		return self.__results
+	@results.setter
+	def results(self, results):
+		self.__results = results
+	
 	def reset(self):
+		'''
+		This method resets the internal stored `Integrator.results` to `None`, effectively resetting
+		the `Integrator` object to its pre-integration status.
+		
+		>>> integrator.reset()
+		'''
 		self.results = None
-
-	########## INTERROGATION ###############################################
-
-	def get_initial(self):
-		return (self._initial, self._initial_offset)
-
-	def get_callback(self):
-		if self._callback is not None:
-			return self._callback
-		else:
-			return ProgressBarCallback() if self._callback_fallback else IntegratorCallback()
-
-	def get_error(self):
-		return {'rel': self._error_rel, 'abs': self._error_abs}
-
-	def get_results(self):
-		return self._results
-
-	def get_operators(self, indicies=None):
-		if indicies is None:
-			return self._operators
-
-		operators = []
-		for operator in self._operators:
-			operators.append(operator.restrict(*indicies).collapse('t'))  # ,**self.get_op_params()
-		return operators
-
-	def get_op_params(self, *args):
-		if len(args) > 0:
-			r = {}
-			for arg in args:
-				r[arg] = self._operator_params.get(arg)
-		return self._operators_params
-
-	def get_time_ops(self, indicies=None):
+	
+	@property
+	def time_ops(self):
+		'''
+		A reference to the dictionary of time operators. Can be updated directly by adding to the dictionary, or 
+		(much more safely) using:
+		
+		>>> self.time_ops = {'T': <StateOperator>, ...}
+		
+		The above is shorthand for:
+		
+		>>> for time, time_op in {'T': <StateOperator>, ...}:
+		        self.add_time_op(time, time_op) 
+		'''
+		return self.__time_ops
+	@time_ops.setter
+	def time_ops(self, time_ops):
+		self.__time_ops = {}
+		for time, time_op in time_ops.items():
+			self.add_time_op(time, time_op)
+	
+	def add_time_op(self, time, time_op):
+		'''
+		This method adds a time operator `time_op` at time `time`. Note that there can only be
+		one time operator for any given time. A "time operator" is just a `StateOperator` 
+		'''
+		if not isinstance(time_op, StateOperator):
+			raise ValueError("Time operator must be an instance of State Operator.")
+		self.__time_ops[time] = time_op
+	
+	def get_time_ops(self, indices=None):
+		'''
+		This method returns the time_ops of `Integrator.time_ops` restricted to
+		the indicies specified (using `StateOperator.restrict`).
+		
+		This is used internally by `Integrator` to optimise the integration
+		process (by restricting integration to the indices which could possibly 
+		affect the state).
+		'''
 		time_ops = {}
-		for time, op in self._time_ops.items():
-			time = self._p('t', t=time)  # ,**self.get_op_params()
+		for time, op in self.time_ops.items():
+			time = self.p('t', t=time)  # ,**self.get_op_params()
 			if time in time_ops:
 				raise ValueError("Timed operators clash. Consider merging them.")
-			if indicies is None:
+			if indices is None:
 				time_ops[time] = op.collapse('t')  # ,**self.get_op_params()
 			else:
-				time_ops[time] = op.restrict(*indicies).collapse('t')  # ,**self.get_op_params()
+				time_ops[time] = op.restrict(*indices).collapse('t')  # ,**self.get_op_params()
 		return time_ops
+	
+	@property
+	def operators(self):
+		'''
+		Return a reference to the list of operators (each of which is a `StateOperator`) used internally. 
+		To add operators you can directly add to this list, or use (much safer):
+		
+		>>> self.operators = [<StateOperator>, <StateOperator>, ...]
+		'''
+		return self.__operators
+	@operators.setter
+	def operators(self, operators):
+		self.__operators = []
+		for operator in operators:
+			self.add_operator(operator)
+	
+	def add_operator(self, operator):
+		'''
+		This method appends the provided `StateOperator` to the list of operators
+		to be used during integrations.
+		'''
+		if not isinstance(operator, StateOperator):
+			raise ValueError("Operator must be an instance of State Operator.")
+		self.__operators.append(operator)
+
+	def get_operators(self, indices=None):
+		'''
+		This method returns the operators of `Integrator.operators` restricted to
+		the indicies specified (using `StateOperator.restrict`).
+		
+		This is used internally by `Integrator` to optimise the integration
+		process (by restricting integration to the indices which could possibly 
+		affect the state).
+		'''
+		if indices is None:
+			return self.operators
+
+		operators = []
+		for operator in self.operators:
+			operators.append(operator.restrict(*indices).collapse('t'))  # ,**self.get_op_params()
+		return operators
+	
+	@property
+	def params(self):
+		'''
+		Returns a reference to the parameter overrides to be used by the `StateOperator` objects
+		that are in turn used by `Integrator`.
+		'''
+		return self.__operator_params
+	@params.setter
+	def params(self, params):
+		self.__operator_params = params
+	
+	@property
+	def progress_callback(self):
+		'''
+		Returns the current set progress callback. This can be `True`, in which case the default 
+		fallback callback is used; `False`, in which case the callback is disabled; or a 
+		manually created instance of `IntegratorCallback`. To retrieve the `IntegratorCallback`
+		that will be used (including the fallback), use `Integrator.get_progress_callback`.
+		
+		The progress callback instance can be set using:
+		
+		>>> integrator.progress_callback = <True, False, or IntegratorCallback instance>
+		'''
+		return self.__progress_callback
+	@progress_callback.setter
+	def progress_callback(self, progress):
+		if not isinstance(progress, IntegratorCallback) and not type(progress) == bool:
+			raise ValueError("Invalid type '%s' for progress_callback." % type(progress))
+		self.__progress_callback = progress
+			
+	def get_progress_callback(self):
+		'''
+		Return the `IntegratorCallback` object that will be used by `Integrator`. Note that
+		if a callback has not been specified, and `Integrator.progress_callback` is `False`, 
+		then an impotent `IntegratorCallback` object is returned, that does nothing when called.
+		'''
+		if isinstance(self.progress_callback, IntegratorCallback):
+			return self.progress_callback
+		
+		return ProgressBarCallback() if self.progress_callback else IntegratorCallback()
+	
+	@property
+	def int_kwargs(self):
+		'''
+		A reference to the dictionary of extra keyword arguments to pass to the 
+		`_integrator` initialisation method; which in turn can use these keyword
+		arguments to initialise the integration. 
+		'''
+		return self.__int_kwargs
+	@int_kwargs.setter
+	def int_kwargs(self, kwargs):
+		self.__int_kwargs = kwargs
 
 	########## USER METHODS ################################################
-
+	
+	def integrate(self, times=None, step=1):
+		if self.results is None:
+			return self.start(times, step)
+		else:
+			return self.extend(times, step)
+		
 	#
 	# Start integration and cache results
 	def start(self, times=None, step=1):
-		self.results, return_results = self.integrate(self._initial, times=times, step=step, t_offset=self._initial_offset)
+		self.results, return_results = self.__integrate(self.initial, times=times, step=step, t_offset=self.t_offset)
 		return return_results
 
 	#
@@ -213,7 +377,7 @@ class Integrator(object):
 		for result in self.results:
 			current_states.append(result[-1][1])
 
-		results, return_results = self.integrate(current_states, times=times, step=step, t_offset=t_offset)
+		results, return_results = self.__integrate(current_states, times=times, step=step, t_offset=t_offset)
 
 		for i, result in enumerate(results):
 			for j, tuple in enumerate(result):
@@ -257,72 +421,72 @@ class Integrator(object):
 		if isinstance(y_0, Operator):
 			y_0 = y_0(t=0)  # ,**self.get_op_params()
 		nz = np.nonzero(y_0)
-		indicies = set()
+		indices = set()
 		for n in nz:
-			indicies.update(list(n))
-		indicies = self.__get_connected(*indicies)
-		return self.__get_restricted_state(y_0, indicies), indicies
+			indices.update(list(n))
+		indices = self.__get_connected(*indices)
+		return self.__get_restricted_state(y_0, indices), indices
 
-	def __get_restricted_state(self, y_0, indicies):
+	def __get_restricted_state(self, y_0, indices):
 		if len(y_0.shape) == 2:
-			y_0 = y_0[indicies, :]
-			return y_0[:, indicies]
+			y_0 = y_0[indices, :]
+			return y_0[:, indices]
 		elif len(y_0.shape) == 1:
-			return y_0[indicies]
+			return y_0[indices]
 		raise ValueError("Cannot restrict y_0. Too many dimensions.")
 
-	def __get_connected(self, *indicies):
-		new = set(indicies)
+	def __get_connected(self, *indices):
+		new = set(indices)
 
 		operators = self.get_operators() + self.get_time_ops().values()
 		for operator in operators:
-				new.update(operator.connected(*indicies))  # ,**self.get_op_params()
+				new.update(operator.connected(*indices))  # ,**self.get_op_params()
 
-		if len(new.difference(indicies)) != 0:
+		if len(new.difference(indices)) != 0:
 			new.update(self.__get_connected(*new))
 
 		return list(new)
 
-	def __state_restore(self, y, indicies, shape):
+	def __state_restore(self, y, indices, shape):
 		if len(shape) not in (1, 2):
 			raise ValueError("Integrator only knows how to handle 1 and 2 dimensional states.")
 		new_y = np.zeros(shape, dtype=np.complex128)
 		if len(shape) == 1:
-			new_y[indicies] = y
+			new_y[indices] = y
 		else:
-			for i, index in enumerate(indicies):
-					new_y[index, indicies] = np.array(y)[i, :]
+			for i, index in enumerate(indices):
+					new_y[index, indices] = np.array(y)[i, :]
 
 		return new_y
 
-	def __results_restore(self, ys, indicies, shape):
+	def __results_restore(self, ys, indices, shape):
 		new_ys = []
 		for y in ys:
-			new_ys.append((y[0], self.__state_restore(y[1], indicies, shape)))
+			new_ys.append((y[0], self.__state_restore(y[1], indices, shape)))
 		return new_ys
 
 	#
 	# Integration routine. Should not ordinarily be called directly
-	def integrate(self, y_0s, times=None, step=1, t_offset=0):
-		with self._p:
-			self._p(**self.get_op_params())
+	def __integrate(self, y_0s, times=None, step=1, t_offset=0):
+		with self.p:
+			self.p(**self.params)
 
 			if times is None:
 				raise ValueError("Times must be a list of interesting times.")
 
 			if y_0s is None:
-				y_0s, t_offset = self.get_initial()
+				y_0s, t_offset = self.initial, self.t_offset
 
-			callback = self.get_callback()
+			callback = self.get_progress_callback()
 			callback.onStart()
 
 			results = []
 
 			# Determine the integration sequence
 			if isinstance(times, (list, tuple, np.ndarray)):
-				times2 = map(lambda x: self._p('t', t=x), times)  # ,**self.get_op_params()
+				times2 = map(lambda x: self.p('t', t=x), times)  # ,**self.get_op_params()
 			else:
-				times2 = self._p('t', t=times)  # ,**self.get_op_params())
+				times2 = self.p('t', t=times)  # ,**self.get_op_params())
 
 			progress = Progress()
 			progress.run = 0
@@ -346,13 +510,13 @@ class Integrator(object):
 				return self._derivative(t, y, dim, operators[0])
 
 			# Initialise ODE Solver
-			T = self._integrator(f, **self._integrator_args)
+			T = self._integrator(f, **self.int_kwargs)
 
 			for y_orig in y_0s:
-				y_0, indicies = self.__state_prepare(y_orig)
-				new_ops = self.get_operators(indicies=indicies)
+				y_0, indices = self.__state_prepare(y_orig)
+				new_ops = self.get_operators(indices=indices)
 				operators[0] = new_ops
-				sequence = self._sequence(t_offset, times2, self.get_time_ops(indicies=indicies))
+				sequence = self._sequence(t_offset, times2, self.get_time_ops(indices=indices))
 
 				y_0, dim = self._state_internal2ode(y_0)
 				solution = []
@@ -375,7 +539,7 @@ class Integrator(object):
 						raise ValueError("Unknown segment type generated by sequence.")
 
 				inner_results = self.__results_ode2internal(solution, dim)
-				results.append(self.__results_restore(inner_results, indicies, y_orig.shape))
+				results.append(self.__results_restore(inner_results, indices, y_orig.shape))
 				progress.run += 1
 
 			# since we use sympy objects, potentially with cache enabled, we should clear it lest it build up
@@ -391,7 +555,7 @@ class Integrator(object):
 			time_map = {}
 			for i, time in enumerate(times):
 				if not isinstance(time, (int, long, float, complex)):
-					time_map[self._p(time)] = time  # **self.get_op_params()
+					time_map[self.p(time)] = time  # **self.get_op_params()
 
 			# Populate return results
 			for i, result_set in enumerate(results):
@@ -484,7 +648,7 @@ class QuantumIntegrator(Integrator):
 		if 'nsteps' not in kwargs:
 			kwargs['nsteps'] = 1e9
 
-		r = ode(f).set_integrator('zvode', atol=self._error_abs, rtol=self._error_rel, **kwargs)
+		r = ode(f).set_integrator('zvode', atol=self.error_abs, rtol=self.error_rel, **kwargs)
 		return r
 
 	#
@@ -522,7 +686,7 @@ class RealIntegrator(Integrator):
 		if 'nsteps' not in kwargs:
 			kwargs['nsteps'] = 1e9
 
-		r = ode(f).set_integrator('vode', atol=self._error_abs, rtol=self._error_rel, **kwargs)
+		r = ode(f).set_integrator('vode', atol=self.error_abs, rtol=self.error_rel, **kwargs)
 		return r
 
 	def _integrate(self, T, y_0, times=None, **kwargs):
@@ -569,8 +733,8 @@ try:
 			T = s.ode_solver()
 			T.function = f
 			T.algorithm = 'rkf45'  # self.solver
-			T.error_rel = self._error_rel
-			T.error_abs = self._error_abs
+			T.error_rel = self.error_rel
+			T.error_abs = self.error_abs
 			return T
 
 		def _integrate(self, T, y_0, times=None, **kwargs):

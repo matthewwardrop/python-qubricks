@@ -7,8 +7,8 @@ from ..basis import Basis
 
 class StandardBasis(Basis):
 
-    def init(self, dim=None):
-        if dim is None:
+    def init(self):
+        if self.dim is None:
             raise ValueError("Dimension must be specified.")
 
     @property
@@ -38,9 +38,9 @@ class SimpleBasis(Basis):
 class SpinBasis(StandardBasis):
 
     def init(self, dim=None):
-        if dim is None:
+        if self.dim is None:
             raise ValueError("Dimension must be specified.")
-        if dim % 2 == 1:
+        if self.dim % 2 == 1:
             raise ValueError("Dimension must be even.")
 
     def state_info(self, state, params={}):

@@ -19,17 +19,17 @@ class CustomStateOperator(StateOperator):
 		'''
 		raise NotImplementedError("StateOperator.__call__ is not implemented.")
 	
-	def restrict(self, *indicies):
+	def restrict(self, *indices):
 		'''
 		StateOperator.restrict should return a new StateOperator restricted to the basis states
-		with indicies `indicies`.
+		with indices `indices`.
 		'''
 		raise NotImplementedError("StateOperator.restrict is not implemented.")
 	
-	def connected(self, *indicies, **params):
+	def connected(self, *indices, **params):
 		'''
-		StateOperator.connected should return the list of basis state indicies which would mix
-		with the specified basis state indicies `indicies` under repeated operation of the 
+		StateOperator.connected should return the list of basis state indices which would mix
+		with the specified basis state indices `indices` under repeated operation of the 
 		StateOperator.
 		'''
 		raise NotImplementedError("StateOperator.connected is not implemented.")

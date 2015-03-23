@@ -3,28 +3,28 @@ from ..system import QuantumSystem
 
 class SimpleQuantumSystem(QuantumSystem):
 
-    def setup_environment(self, **kwargs):
+    def init(self, **kwargs):
         '''
         Configure any custom properties/attributes using kwargs passed
         to __init__.
         '''
         self.kwargs = kwargs
 
-    def setup_parameters(self):
+    def init_parameters(self):
         '''
         After the QuantumSystem parameter initialisation routines
         are run, check that the parameters are initialised correctly.
         '''
         pass
 
-    def setup_bases(self):
+    def init_bases(self):
         '''
         Add the bases which are going to be used by this QuantumSystem
         instance.
         '''
         pass
 
-    def setup_hamiltonian(self):
+    def init_hamiltonian(self):
         '''
         Initialise the Hamiltonian to be used by this QuantumSystem
         instance.
@@ -33,13 +33,13 @@ class SimpleQuantumSystem(QuantumSystem):
             raise ValueError("A Hamiltonian was not specified (and is required) for this system.")
         return self.Operator(self.kwargs['hamiltonian'])
 
-    def setup_states(self):
+    def init_states(self):
         '''
         Add the named/important states to be used by this quantum system.
         '''
         pass
 
-    def setup_measurements(self):
+    def init_measurements(self):
         '''
         Add the measurements to be used by this quantum system instance.
         '''
@@ -50,7 +50,7 @@ class SimpleQuantumSystem(QuantumSystem):
     def default_derivative_ops(self):
         return ['evolution'] + self.get_derivative_ops().keys()
 
-    def setup_derivative_ops(self, components=None):
+    def init_derivative_ops(self, components=None):
         '''
         Setup the derivative operators to be implemented on top of the
         basic quantum evolution operator.
