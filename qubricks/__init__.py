@@ -7,3 +7,4 @@ from .measurement import Measurement, MeasurementIterationResults
 from .basis import *
 from .operator import *
 from .stateoperator import *
+from .integrator import *
