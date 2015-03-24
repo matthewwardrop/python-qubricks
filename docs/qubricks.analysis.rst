@@ -2,24 +2,24 @@ API: Analysis Tools
 =========================
 
 
-qubricks.analysis.perturbation module
--------------------------------------
+Perturbative Analysis
+---------------------
 
 .. automodule:: qubricks.analysis.perturbation
     :members:
     :undoc-members:
     :show-inheritance:
 
-qubricks.analysis.spectrum module
----------------------------------
+Spectral Analysis
+-----------------
 
 .. automodule:: qubricks.analysis.spectrum
     :members:
     :undoc-members:
     :show-inheritance:
     
-qubricks.analysis.model module
-------------------------------
+Utilities
+---------
 
 .. automodule:: qubricks.analysis.model
     :members:
