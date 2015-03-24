@@ -60,12 +60,12 @@ class ExpectationMeasurement(Measurement):
     def result_shape(self, *args, **kwargs):
         return (len(kwargs['psi_0s']), len(kwargs.get('times', 0)))
 
-    def measure(self, r, params={}, subspace=None, psi_0s=None, times=None, **kwargs):
+    def measure(self, data, params={}, subspace=None, psi_0s=None, times=None, **kwargs):
 
-        rval = np.empty((len(r), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
 
         self.__P = None
-        for i, resultset in enumerate(r):
+        for i, resultset in enumerate(data):
             for j, time in enumerate(resultset['time']):
                 rval[i, j] = (time, self.expectations(resultset['state'][j]))
 
@@ -103,12 +103,12 @@ class LeakageMeasurement(Measurement):
     def result_units(self):
         return None
 
-    def measure(self, r, times, psi_0s, params={}, subspace=None, input=None, output=None, **kwargs):
+    def measure(self, data, times, psi_0s, params={}, subspace=None, input=None, output=None, **kwargs):
 
-        rval = np.empty((len(r), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
 
         self.__P = None
-        for i, resultset in enumerate(r):
+        for i, resultset in enumerate(data):
             for j, time in enumerate(resultset['time']):
                 rval[i, j] = (time, self.leakage(resultset['state'][j], subspace, output, params))
 
