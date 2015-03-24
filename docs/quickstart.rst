@@ -49,7 +49,7 @@ We can model such white noise using a Lindblad superoperator.
 
 This is a simple system which can be analytically solved. 
 Evolution under this Hamiltonian will lead to the
-electron’s spin gyrating around an axis between Z and X (i.e. at an
+electron's spin gyrating around an axis between Z and X (i.e. at an
 angle :math:`\theta = \tan^{-1}(B_z/J_x)` from the x-axis) at a
 frequency of :math:`2\sqrt{B_z^2 + B_x^2}`. The effect of high frequency
 noise in :math:`B_x` is to progressively increase the mixedness in the Z
@@ -167,7 +167,7 @@ ways. Either you must create a dictionary relating parameter names to
 matrix forms, or you can create a SymPy symbolic matrix. In both cases,
 one then passes this to the Operator constructor. For example:
 
->>> op = Operator(’B’:[[1,0],[0,-1]], ’J’:[[0,1],[1,0]])
+>>> op = Operator('B':[[1,0],[0,-1]], 'J':[[0,1],[1,0]])
 >>> op.symbolic()
 Matrix([
 [B, J],
@@ -197,7 +197,7 @@ manually add it for demonstration purposes.
 >>> p = Parameters()
 >>> p(B=2,J=1)
 < Parameters with 2 definitions >
->>> op = Operator(’B’:[[1,0],[0,-1]], ’J’:[[0,1],[1,0]],parameters=p)
+>>> op = Operator('B':[[1,0],[0,-1]], 'J':[[0,1],[1,0]],parameters=p)
 >>> op()
 array([[ 2.+0.j,  1.+0.j],
        [ 1.+0.j, -2.+0.j]])
@@ -231,7 +231,7 @@ If you are only interested in how certain parameters affect the
 operator, then to improve performance you can "collapse" the Operator
 down to only include variables which depend upon those variables.
 
->>> op.collapse(’t’,J=1)
+>>> op.collapse('t',J=1)
 
 The result of the above command would substitute all variables (with a
 parameter override of :math:`J=1`) that do not depend upon :math:`t` with
@@ -246,7 +246,7 @@ connected by non-zero matrix elements, subject to the provided parameter
 substitution. Note that this comparison is done with the numerical
 values of the parameters.
 
->>> op = Operator(’B’:[[1,0],[0,-1]], ’J’:[[0,1],[1,0]],parameters=p)
+>>> op = Operator('B':[[1,0],[0,-1]], 'J':[[0,1],[1,0]],parameters=p)
 >>> op.connected(0)
 0,1
 >>> op.connected(0, J=0)
@@ -256,7 +256,7 @@ The restrict method returns a new Operator object which keeps only the
 entries in the old Operator object which correspond to the basis
 elements indicated by the indicies.
 
->>> op = Operator(’B’:[[1,0],[0,-1]], ’J’:[[0,1],[1,0]],parameters=p)
+>>> op = Operator('B':[[1,0],[0,-1]], 'J':[[0,1],[1,0]],parameters=p)
 >>> op.restrict(0)
 <Operator with shape (1, 1)>
 >>> op.symbolic()
