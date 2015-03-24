@@ -71,7 +71,7 @@ class QuantumSystem(object):
 
 		self.__H = None
 		self.__derivative_ops = {}
-		self.__derivative_ops_default = []
+		self.__derivative_ops_default = ['evolution']
 
 		self.__named_states = {}  # A dictionary of named states for easy recollection
 		self.__named_ensembles = {}  # A dictionary of named ensembles for density states
@@ -204,6 +204,8 @@ class QuantumSystem(object):
 		indexed with string names, then they are added as derivative operators of this object.
 		If the operators depend on the hamiltonian or other properties of the quantum system,
 		then the operators should be implemented in `get_derivative_ops` instead.
+		
+		This method should also initialise the default_derivative_ops property.
 		'''
 		pass
 	
@@ -303,7 +305,7 @@ class QuantumSystem(object):
 		'''
 		This method returns the `Basis` object associated with the provided name. If `basis` is
 		a `Basis` object, then it is simply returned; and if `basis` is None, a `StandardBasis` is
-		returned.
+		returned (or if a StandardBasis instance has been added to this instance, then it is returned instead).
 		
 		:param basis: A name of a basis, a `Basis` instance, or None.
 		'''
@@ -326,7 +328,8 @@ class QuantumSystem(object):
 
 	def add_basis(self, name, basis):
 		'''
-		This method is used to add a basis.
+		This method is used to add a basis. The first `StandardBasis` instance
+		to be added will become the default basis used to describe this `QuantumSystem`.
 		
 		:param name: The name used to reference this basis in the future.
 		:type name: str

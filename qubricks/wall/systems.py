@@ -28,10 +28,10 @@ class SimpleQuantumSystem(QuantumSystem):
         '''
         self.kwargs = {
                        'hamiltonian': hamiltonian,
-                       'bases': bases,
-                       'states': states,
-                       'measurements': measurements,
-                       'derivative_ops': derivative_ops,
+                       'bases': bases if bases != None else {},
+                       'states': states if states != None else {},
+                       'measurements': measurements if measurements != None else {},
+                       'derivative_ops': derivative_ops if derivative_ops != None else {},
                        }
 
     def init_hamiltonian(self):
