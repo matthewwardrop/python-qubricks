@@ -2,7 +2,6 @@ from abc import ABCMeta, abstractmethod
 import math
 import sys
 import types
-import warnings
 
 from sympy.core.cache import clear_cache as sympy_clear_cache
 
@@ -11,76 +10,52 @@ from parameters import Parameters
 
 from .operator import Operator
 from .stateoperator import StateOperator
-
-
-class IntegratorCallback(object):
-
-	#
-	# Trigger start
-	def onStart(self):
-		pass
-
-	#
-	# Receives a float value in [0,1].
-	def onProgress(self, progress, identifier=None):
-		pass
-
-	#
-	# Called when function is complete.
-	# Level = 0 -> OKAY
-	# Level = 1 -> WARN
-	# Level = 2 -> ERROR
-	# Status = string message
-	def onComplete(self, identifier=None, message=None, status=0):
-		pass
-
-# Try to use the full implementation of progress bar
-try:
-	import progressbar as pbar
-
-	class ProgressBarCallback(IntegratorCallback):
-
-		def onStart(self):
-			self.pb = pbar.ProgressBar(widgets=['\033[0;34m', pbar.Percentage(), ' ', pbar.Bar(), '\033[0m'])
-			self.pb.start()
-			self._progress = 0
-
-		def onProgress(self, progress, identifier=None):
-			progress *= 100
-			if (progress > self._progress):
-				self._progress = math.ceil(progress)
-				self.pb.update(min(100, progress))
-
-		def onComplete(self, identifier=None, message=None, status=0):
-			self.pb.finish()
-except:
-	class ProgressBarCallback(IntegratorCallback):
-
-		def onStart(self):
-			self._progress = 0
-
-		def onProgress(self, progress, identifier=None):
-			progress *= 100
-			# if (progress > self._progress):
-			self._progress = math.ceil(progress)
-			sys.stderr.write("\r%3d%%" % min(100, progress))
-
-		def onComplete(self, identifier=None, message=None, status=0):
-			print "\n"
-			if message:
-				print "%s:" % identifier, message
-
-
-class Progress(object):
-	def __init__(self):
-		self.run = 0
-		self.runs = 1
-		self.callback = None
+from mako.exceptions import RuntimeException
 
 
 class Integrator(object):
 	'''
+	`Integrator` instances perform a numerical integration on arbitrary initial states
+	using `StateOperator` objects to describe the instantaneous derivative. It is itself
+	an abstract class, which must be subclassed. This allows the separation of logic from
+	actual integration machinery.
 	
+	:param identifier: An object to identify this integrator from others. Can be left unspecified.
+	:type identifier: object
+	:param initial: A sequence of states/ensembles to use as initial states in the integration.
+	:type initial: list/tuple of numpy.arrays
+	:param t_offset: Normally integration starts from t=0. Use this to specify a time offset. Can
+		be any value understood by a `Parameters` instance.
+	:type t_offset: object
+	:param parameters: A `Parameters` instance for `Integrator` to use.
+	:type parameters: Parameters or None
+	:param params: Parameter overrides to use during when evaluating `StateOperator` objects.
+	:type params: dict
+	:param error_rel: The maximum relative error allowable.
+	:type error_rel: float
+	:param error_abs: The maximum absolute error allowable.
+	:type error_abs: float
+	:param time_ops: A dictionary of `StateOperator` objects to be applied at the time indicated
+		by their index (which can be any object understood by `Parameters`).
+	:type time_ops: dict
+	:param progress: `True` if progress should be shown using the fallback callback, `False` if not, or 
+		and `IntegratorCallback` instance. This is used to report integrator progress.
+	:type progress: bool or IntegratorCallback
+	:param kwargs: Additional keyword arguments to pass to the `_integrator` method.
+	
+	Subclassing Integrator:
+		Subclasses of `Integrator` must implement the following methods:
+			- _integrator(self, f, **kwargs)
+			- _integrate(self, integrator, initial, times=None, **kwargs)
+			- _derivative(self, t, y, dim)
+			- _state_internal2ode(self, state)
+			- _state_ode2internal(self, state, dimensions)
+		The documentation for these methods is available using:
+		
+		>>> help(Integrator.<name of function>)
+		
+		Their documentation will not appear in a complete API listing because
+		they are private methods.
 	'''
 	__metaclass__ = ABCMeta
 
@@ -127,7 +102,10 @@ class Integrator(object):
 	@property
 	def p(self):
 		'''
-		A reference to the Parameters instance used by this object.
+		A reference to the `Parameters` instance used by this object. This reference can be updated
+		using:
+		
+		>>> integrator.p = <Parameters instance>
 		'''
 		if self.__p is None:
 			raise ValueError("Parameters instance required by Integrator object, but a Parameters object has not been configured.")
@@ -143,7 +121,7 @@ class Integrator(object):
 	@property
 	def initial(self):
 		'''
-		The initial state. Can be set using:
+		The initial state. Ignored in `Integrator.extend`. Can be set using:
 		
 		>>> integrator.initial = <list of states>
 		'''
@@ -234,7 +212,13 @@ class Integrator(object):
 	def add_time_op(self, time, time_op):
 		'''
 		This method adds a time operator `time_op` at time `time`. Note that there can only be
-		one time operator for any given time. A "time operator" is just a `StateOperator` 
+		one time operator for any given time. A "time operator" is just a `StateOperator` that
+		will be applied at a particular time. Useful in constructing ideal pulse sequences.
+		
+		:param time: Time can be either a float or object interpretable by a `Parameters` instance.
+		:type time: object
+		:param time_op: The `StateOperator` instance to be applied at time `time`.
+		:type time_op: StateOperator 
 		'''
 		if not isinstance(time_op, StateOperator):
 			raise ValueError("Time operator must be an instance of State Operator.")
@@ -242,12 +226,15 @@ class Integrator(object):
 	
 	def get_time_ops(self, indices=None):
 		'''
-		This method returns the time_ops of `Integrator.time_ops` restricted to
+		This method returns the "time operators" of `Integrator.time_ops` restricted to
 		the indicies specified (using `StateOperator.restrict`).
 		
 		This is used internally by `Integrator` to optimise the integration
 		process (by restricting integration to the indices which could possibly 
 		affect the state).
+		
+		:param indicies: A sequence of basis indices.
+		:type indicies: interable of int
 		'''
 		time_ops = {}
 		for time, op in self.time_ops.items():
@@ -263,10 +250,14 @@ class Integrator(object):
 	@property
 	def operators(self):
 		'''
-		Return a reference to the list of operators (each of which is a `StateOperator`) used internally. 
+		A reference to the list of operators (each of which is a `StateOperator`) used internally. 
 		To add operators you can directly add to this list, or use (much safer):
 		
-		>>> self.operators = [<StateOperator>, <StateOperator>, ...]
+		>>> integrator.operators = [<StateOperator>, <StateOperator>, ...]
+		
+		Or, alternatively:
+		
+		>>> integrator.add_operator( <StateOperator> )
 		'''
 		return self.__operators
 	@operators.setter
@@ -279,6 +270,10 @@ class Integrator(object):
 		'''
 		This method appends the provided `StateOperator` to the list of operators
 		to be used during integrations.
+		
+		:param operator: The operator to add to the list of operators contributing
+			to the instantaneous derivative.
+		:type operator: StateOperator
 		'''
 		if not isinstance(operator, StateOperator):
 			raise ValueError("Operator must be an instance of State Operator.")
@@ -292,6 +287,9 @@ class Integrator(object):
 		This is used internally by `Integrator` to optimise the integration
 		process (by restricting integration to the indices which could possibly 
 		affect the state).
+		
+		:param indicies: A sequence of basis indices.
+		:type indicies: interable of int
 		'''
 		if indices is None:
 			return self.operators
@@ -304,8 +302,12 @@ class Integrator(object):
 	@property
 	def params(self):
 		'''
-		Returns a reference to the parameter overrides to be used by the `StateOperator` objects
-		that are in turn used by `Integrator`.
+		A reference to the parameter overrides to be used by the `StateOperator` objects
+		used by `Integrator`. The parameter overrides can be set using:
+		
+		>>> integrator.params = { .... }
+		
+		See `parameters.Parameters` for more information about parameter overrides.
 		'''
 		return self.__operator_params
 	@params.setter
@@ -315,7 +317,7 @@ class Integrator(object):
 	@property
 	def progress_callback(self):
 		'''
-		Returns the current set progress callback. This can be `True`, in which case the default 
+		The currently set progress callback. This can be `True`, in which case the default 
 		fallback callback is used; `False`, in which case the callback is disabled; or a 
 		manually created instance of `IntegratorCallback`. To retrieve the `IntegratorCallback`
 		that will be used (including the fallback), use `Integrator.get_progress_callback`.
@@ -333,9 +335,10 @@ class Integrator(object):
 			
 	def get_progress_callback(self):
 		'''
-		Return the `IntegratorCallback` object that will be used by `Integrator`. Note that
+		This method returns the `IntegratorCallback` object that will be used by `Integrator`. Note that
 		if a callback has not been specified, and `Integrator.progress_callback` is `False`, 
-		then an impotent `IntegratorCallback` object is returned, that does nothing when called.
+		then an impotent `IntegratorCallback` object is returned, which has methods that do
+		nothing when called.
 		'''
 		if isinstance(self.progress_callback, IntegratorCallback):
 			return self.progress_callback
@@ -355,29 +358,52 @@ class Integrator(object):
 		self.__int_kwargs = kwargs
 
 	########## USER METHODS ################################################
-	
-	def integrate(self, times=None, step=1):
-		if self.results is None:
-			return self.start(times, step)
-		else:
-			return self.extend(times, step)
 		
 	#
 	# Start integration and cache results
-	def start(self, times=None, step=1):
-		self.results, return_results = self.__integrate(self.initial, times=times, step=step, t_offset=self.t_offset)
+	def start(self, times=None, **kwargs):
+		'''
+		This method starts an integration with returned states for the times
+		of interest specified. Any additional keyword arguments are passed to the 
+		`_integrate` method. See the documentation for your `Integrator` instance
+		for more information.
+		
+		:param times: A sequence of times, which can be any objected understood by `Parameters`.
+		:type times: iterable
+		:param kwargs: Additional keyword arguments to send to the integrator.
+		:type kwargs: dict
+		'''
+		self.results, return_results = self.__integrate(self.initial, times=times, t_offset=self.t_offset, kwargs=kwargs)
 		return return_results
 
 	#
 	# Continue last integration
-	def extend(self, times=None, step=1):
+	def extend(self, times=None, **kwargs):
+		'''
+		This method extends an integration with returned states for the times
+		of interest specified. This method requires that `Integrator.start` has
+		already been called at least once, and that at least some of the times in `times`
+		are after the latest times already integrated. Any previous times are ignored.
+		Any additional keyword arguments are passed to the 
+		`_integrate` method. See the documentation for your `Integrator` instance
+		for more information.
+		
+		:param times: A sequence of times, which can be any objected understood by `Parameters`.
+			Should all be larger than the last time of the previous results.
+		:type times: iterable
+		:param kwargs: Additional keyword arguments to send to the integrator.
+		:type kwargs: dict
+		'''
+		if self.results is None:
+			raise RuntimeException("No previous results to extend. Aborting!")
+		
 		t_offset = self.results[0][-1][0]
 
 		current_states = []
 		for result in self.results:
 			current_states.append(result[-1][1])
 
-		results, return_results = self.__integrate(current_states, times=times, step=step, t_offset=t_offset)
+		results, return_results = self.__integrate(current_states, times=times, t_offset=t_offset, kwargs=kwargs)
 
 		for i, result in enumerate(results):
 			for j, tuple in enumerate(result):
@@ -387,26 +413,86 @@ class Integrator(object):
 
 	########## INTEGRATION #################################################
 
-	#
-	# Convert initial values to a vector twice as long, with the second set referring to imaginary values
+	@abstractmethod
+	def _integrator(self, f, **kwargs):
+		'''
+		This method should return the object(s) necessary to perform
+		the integration step. `f` is the the function which will return
+		the derivative at each step.
+		
+		:param f: A function with signature f(t,y) which returns the derivative 
+			at time `t` for the state `y`. Note that the derivative that is returned
+			is that of `_derivative`, but `f` also handles progress reporting.
+		:type f: function
+		:param kwargs: Any additional keyword arguments passed to the `Integrator`
+			constructor.
+		:type kwargs: dict
+		'''
+		pass
+
+	@abstractmethod
+	def _integrate(self, integrator, initial, times=None, **kwargs):
+		'''
+		This method should perform the integration using `integrator`, and
+		return a list of two-tuples, each containing
+		a time and a corresponding state. The times should be those listed in times,
+		which will have been processed into floats.
+		
+		:param integrator: Whichever value was returned from `_integrator`.
+		:type integrator: object
+		:param initial: The state at which to start integrating. Will be the type
+			returned by `_state_internal2ode`.
+		:type initial: object
+		:param times: A sequence of times for which to return the state.
+		:type times: list of float
+		:param kwargs: Additional keyword arguments passed to `Integrator.start`
+			and/or `Integrator.extend`.
+		:type kwargs: dict
+		'''
+		pass
+	
+	@abstractmethod
+	def _derivative(self, t, y, dim):
+		'''
+		This method should return the instantaneous derivative at time `t` 
+		with current state `y` with dimensions `dim` (as returned by 
+		`_state_internal2ode`. The derivative should be expressed
+		in a form understood by the integrator returned by `_integrator`
+		as used in `_integrate`.
+		
+		:param t: The current time.
+		:type t: float
+		:param y: The current state (in whatever form is returned by the integrator).
+		:type y: object
+		:param dim: The original dimensions of the state (as returned by `_state_internal2ode`).
+		:type dim: object
+		'''
+		pass
+	
 	@abstractmethod
 	def _state_internal2ode(self, state):
+		'''
+		This method should return a tuple of a state and its original dimensions in some form.
+		The state should be in a form understandable by the integrator returned by `_integrator`,
+		and the derivative returned by `_derivative`.
+		
+		:param state: The state represented as a numpy array. Maybe 1D or 2D.
+		:type state: numpy.ndarray
+		'''
 		pass
 
 	@abstractmethod
 	def _state_ode2internal(self, state, dimensions):
-		pass
-
-	@abstractmethod
-	def _derivative(self, t, y, dim):
-		pass
-
-	@abstractmethod
-	def _integrator(self, f, **kwargs):
-		pass
-
-	@abstractmethod
-	def _integrate(self, T, y_0, times=None, **kwargs):
+		'''
+		This method should restore and return the state (currently represented in the form used by the integrator
+		returned by `_integrator`) to its representation as a numpy array using the 
+		`dimensions` returned by `_state_internal2ode`.
+		
+		:param state: The state to re-represented as a numpy array.
+		:type state: object
+		:param dimensions: The dimensions returned by `_state_internal2ode`.
+		:type dimensions: object
+		'''
 		pass
 
 	#
@@ -467,7 +553,7 @@ class Integrator(object):
 
 	#
 	# Integration routine. Should not ordinarily be called directly
-	def __integrate(self, y_0s, times=None, step=1, t_offset=0):
+	def __integrate(self, y_0s, times=None, t_offset=0, kwargs={}):
 		with self.p:
 			self.p(**self.params)
 
@@ -510,7 +596,7 @@ class Integrator(object):
 				return self._derivative(t, y, dim, operators[0])
 
 			# Initialise ODE Solver
-			T = self._integrator(f, **self.int_kwargs)
+			integrator = self._integrator(f, **self.int_kwargs)
 
 			for y_orig in y_0s:
 				y_0, indices = self.__state_prepare(y_orig)
@@ -523,7 +609,7 @@ class Integrator(object):
 
 				for i, segment in enumerate(sequence):
 					if isinstance(segment, tuple):
-						sol = self._integrate(T, y_0, times=segment[0], max_step=step)
+						sol = self._integrate(integrator, y_0, times=segment[0], **kwargs)
 						solution.extend(sol) if len(solution) == 0  else solution.extend(sol[1:])
 						y_0 = sol[-1][1]
 						required.extend(segment[1])
@@ -571,7 +657,7 @@ class Integrator(object):
 	# Return a sequence of events for easy integration
 	def _sequence(self, t_offset, times, time_ops):
 
-		t_offset = float(t_offset)
+		t_offset = self.p(t_offset)
 
 		sequence = []
 
@@ -609,157 +695,69 @@ class Integrator(object):
 
 		return sequence
 
+############# CALLBACKS ##############################################################
 
-class QuantumIntegrator(Integrator):
 
-	def _state_internal2ode(self, state):
-		state = np.array(state)
-		dim = state.shape
-		return np.reshape(state, (np.prod(state.shape),)), dim
-
-	def _state_ode2internal(self, state, dimensions):
-		return np.reshape(state, dimensions)
-
-	def _derivative(self, t, y, dim, operators):
-		y = y / np.linalg.norm(y)
-		dy = np.zeros(dim, dtype='complex')
-		# Apply operators
-		y.shape = dim
-
-		for operator in operators:
-			dy += operator(state=y, t=t)  # ,params=self.get_op_params())
-
-		dy.shape = (np.prod(dy.shape),)
-		return dy
+class IntegratorCallback(object):
 
 	#
-	# Set up integrator
-	def _integrator(self, f, **kwargs):
-		warnings.warn("QuantumIntegrator can sometimes be unreliable. Please use RealIntegrator instead.")
-		from scipy.integrate import ode
-
-		defaults = {
-			'nsteps': 1e9,
-			'with_jacobian': False,
-			'method': 'bdf',
-		}
-		defaults.update(kwargs)
-
-		if 'nsteps' not in kwargs:
-			kwargs['nsteps'] = 1e9
-
-		r = ode(f).set_integrator('zvode', atol=self.error_abs, rtol=self.error_rel, **kwargs)
-		return r
+	# Trigger start
+	def onStart(self):
+		pass
 
 	#
-	# Internal integration function
-	# Must return at values at least t_0 and t_f to allow for continuing
-	# Format for returned value is: [ [<time>,<vector>], [<time>,<vector>], ... ]
-	def _integrate(self, T, y_0, times=None, **kwargs):
+	# Receives a float value in [0,1].
+	def onProgress(self, progress, identifier=None):
+		pass
 
-		T.set_initial_value(y_0, times[0])
-		results = []
-		for i, time in enumerate(times):
-			if i == times[0]:
-				results.append((time, y_0))
-			else:
-				T.integrate(time)
-				if not T.successful():
-					raise ValueError("Integration unsuccessful. T = %f" % time)
-				results.append((T.t, T.y))
+	#
+	# Called when function is complete.
+	# Level = 0 -> OKAY
+	# Level = 1 -> WARN
+	# Level = 2 -> ERROR
+	# Status = string message
+	def onComplete(self, identifier=None, message=None, status=0):
+		pass
 
-		return results
-
-
-class RealIntegrator(Integrator):
-
-	def _integrator(self, f, **kwargs):
-		from scipy.integrate import ode
-
-		defaults = {
-			'nsteps': 1e9,
-			'with_jacobian': False,
-			'method': 'bdf',
-		}
-		defaults.update(kwargs)
-
-		if 'nsteps' not in kwargs:
-			kwargs['nsteps'] = 1e9
-
-		r = ode(f).set_integrator('vode', atol=self.error_abs, rtol=self.error_rel, **kwargs)
-		return r
-
-	def _integrate(self, T, y_0, times=None, **kwargs):
-		T.set_initial_value(y_0, times[0])
-		results = []
-		for i, time in enumerate(times):
-			if i == 0:
-				results.append((time, y_0))
-			else:
-				T.integrate(time)
-				if not T.successful():
-					raise ValueError("Integration unsuccessful. T = %f" % time)
-				results.append((T.t, T.y))
-
-		return results
-
-	def _state_internal2ode(self, state):
-		dim = state.shape
-		state = np.array(state).reshape((np.prod(dim),))
-		return np.array(list(np.real(state)) + list(np.imag(state))), dim
-
-	def _state_ode2internal(self, state, dimensions):
-		state = np.array(state[:len(state) / 2]) + 1j * np.array(state[len(state) / 2:])
-		return np.reshape(state, dimensions)
-
-	def _derivative(self, t, y, dim, operators):
-		dy = np.zeros(dim, dtype='complex')
-		# Apply operators
-		y = self._state_ode2internal(y, dim)
-
-		for operator in operators:
-			dy += operator(state=y, t=t)  # ,params=self.get_op_params())
-
-		dy, dim = self._state_internal2ode(dy)
-		return dy
-
-
+# Try to use the full implementation of progress bar
 try:
-	import sage.all as s
+	import progressbar as pbar
 
-	class SageIntegrator(Integrator):
+	class ProgressBarCallback(IntegratorCallback):
 
-		def _integrator(self, f, **kwargs):
-			T = s.ode_solver()
-			T.function = f
-			T.algorithm = 'rkf45'  # self.solver
-			T.error_rel = self.error_rel
-			T.error_abs = self.error_abs
-			return T
+		def onStart(self):
+			self.pb = pbar.ProgressBar(widgets=['\033[0;34m', pbar.Percentage(), ' ', pbar.Bar(), '\033[0m'])
+			self.pb.start()
+			self._progress = 0
 
-		def _integrate(self, T, y_0, times=None, **kwargs):
-			T.ode_solve(y_0=list(y_0), t_span=list(times))
-			return T.solution
+		def onProgress(self, progress, identifier=None):
+			progress *= 100
+			if (progress > self._progress):
+				self._progress = math.ceil(progress)
+				self.pb.update(min(100, progress))
 
-		def _state_internal2ode(self, state):
-			dim = state.shape
-			state = np.array(state).reshape((np.prod(dim),))
-			return list(np.real(state)) + list(np.imag(state)), dim
-
-		def _state_ode2internal(self, state, dimensions):
-			state = np.array(state[:len(state) / 2]) + 1j * np.array(state[len(state) / 2:])
-			return np.reshape(state, dimensions)
-
-		def _derivative(self, t, y, dim, operators):
-			y = np.array(y[:len(y) / 2]).reshape(dim) + 1j * np.array(y[len(y) / 2:]).reshape(dim)
-			dy = np.zeros(dim, dtype='complex')
-
-			for operator in operators:
-				dy += operator(state=y, t=t)  # ,params=self.get_op_params())
-
-			dy.shape = (np.prod(dy.shape),)
-			dy = list(np.real(dy)) + list(np.imag(dy))
-			return dy
-
+		def onComplete(self, identifier=None, message=None, status=0):
+			self.pb.finish()
 except:
-	pass
+	class ProgressBarCallback(IntegratorCallback):
+
+		def onStart(self):
+			self._progress = 0
+
+		def onProgress(self, progress, identifier=None):
+			progress *= 100
+			# if (progress > self._progress):
+			self._progress = math.ceil(progress)
+			sys.stderr.write("\r%3d%%" % min(100, progress))
+
+		def onComplete(self, identifier=None, message=None, status=0):
+			print "\n"
+			if message:
+				print "%s:" % identifier, message
+
+
+class Progress(object):
+	def __init__(self):
+		self.run = 0
+		self.runs = 1
+		self.callback = None

@@ -7,6 +7,8 @@ class AmplitudeMeasurement(Measurement):
     '''
     Amplitude is a sample Measurement subclass that measures the amplitude of being
     in certain basis states as function of time throughout some state evolution.
+    The basis states of interest should be identified using the `subspace` keyword 
+    to the measure function.
     '''
 
     def init(self):
@@ -21,12 +23,12 @@ class AmplitudeMeasurement(Measurement):
     def result_shape(self, *args, **kwargs):
         return (len(kwargs['psi_0s']), len(kwargs.get('times', 0)))
 
-    def measure(self, r, times, psi_0s, params={}, subspace=None, **kwargs):
+    def measure(self, data, times, psi_0s, params={}, subspace=None, **kwargs):
 
-        rval = np.empty((len(r), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
 
         self.__P = None
-        for i, resultset in enumerate(r):
+        for i, resultset in enumerate(data):
             for j, time in enumerate(resultset['time']):
                 rval[i, j] = (time, self.amplitudes(resultset['state'][j]))
 
@@ -40,8 +42,10 @@ class AmplitudeMeasurement(Measurement):
 
 class ExpectationMeasurement(Measurement):
     '''
-    Expectation measures the expectation value of a particular operator applied to
-    a system state.
+    ExpectationMeasurement measures the expectation values of a particular set of operators applied to
+    a system state. It can be initialised using:
+    
+    >>> ExpectationMeasurement(<Operator 1>, <Operator 2>, ...)
     '''
 
     def init(self, *ops):
@@ -79,7 +83,8 @@ class ExpectationMeasurement(Measurement):
 class LeakageMeasurement(Measurement):
     '''
     Leakage measures the probability of a quantum system being outside of a specified
-    subspace.
+    subspace. The subspace of interest should be identified using the `subspace` keyword 
+    to the measure function.
     '''
 
     def init(self):

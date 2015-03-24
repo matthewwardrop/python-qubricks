@@ -667,7 +667,7 @@ class OperatorSet(object):
 
 	:param components: A dictionary of Operator objects, indexed by a string representing
 		the name of the corresponding Operator object.
-	:type components: dict of Operator instances
+	:type components: dict of Operator instances or None
 	:param defaults: A list of component names which should be compiled into an operator when
 		a custom list is not supplied. If defaults is None, then all components are
 		used.
@@ -687,12 +687,29 @@ class OperatorSet(object):
 		>>> ops() # Same as above, since no defaults provided.
 
 		Individual components can also be accessed using: :code:`operatorset['name']`.
+	
+	Subclassing OperatorSet:
+		To subclass `OperatorSet` simply override the `init` method to construct whichever 
+		`Operators` you desire. You should initialise `OperatorSet.components` to be a dictionary;
+		but otherwise, there are no constraints. Note that you can add elements to an OperatorSet
+		without subclassing it.
 	'''
 
-	def __init__(self, components, defaults=None):
+	def __init__(self, components=None, defaults=None, **kwargs):
 		self.components = components
 		self.defaults = defaults
-
+		if self.components is None:
+			self.components = {}
+		self.init(**kwargs)
+	
+	def init(self):
+		'''
+		Subclasses may use this hook to initialise themselves. It is called after 
+		`OperatorSet.components` and `OperatorSet.defaults` are set to their
+		passed values, with `Operator.components` guaranteed to be a dictionary.
+		'''
+		pass
+	
 	def __call__(self, *components):
 		'''
 		Calling the OperatorSet object returns an Operator object which is the sum of
@@ -752,9 +769,7 @@ class OperatorSet(object):
 		if len(components) == 0:
 			raise ValueError("Attempted to apply an empty Operator.")
 		for component in components:
-			if component not in self.components:
-				raise ValueError("Invalid operator component: '%s'" % component)
-			rs.append(self.components[component].apply(state, symbolic=symbolic, left=left, params=params))
+			rs.append(self[component].apply(state, symbolic=symbolic, left=left, params=params))
 		return self.__sum(rs)
 
 	def __sum(self, operators):
@@ -770,10 +785,15 @@ class OperatorSet(object):
 		return s
 
 	def __getitem__(self, key):
-		return self.components[key]
+		try:
+			return self.components[key]
+		except:
+			raise ValueError("Invalid operator component: '%s'" % key)
 
 	def __setitem__(self, key, value):
-		if isinstance(value, Operator):
-			self.components[key] = value
-		else:
-			raise ValueError("Attempted to add non-Operator object to OperatorSet.")
+		if not isinstance(value, Operator):
+			try:
+				value = Operator(value)
+			except:
+				raise ValueError("Set value is not an Operator instance, nor can it be transformed into one. Received: %s" % value)
+		self.components[key] = value

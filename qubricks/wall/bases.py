@@ -6,42 +6,64 @@ from ..basis import Basis
 
 
 class StandardBasis(Basis):
+    '''
+    `StandardBasis` is a simple subclass of `Basis` that describes the 
+    standard basis; that is, presents a basis that looks like the identity
+    operator. An instance can be created using:
+    
+    >>> StandardBasis(parameters=<Parameters instance>, dim=<dimension of basis>)
+    '''
 
     def init(self):
         if self.dim is None:
             raise ValueError("Dimension must be specified.")
+        self.__operator = self.Operator(np.eye(self.dim))
 
     @property
     def operator(self):
-        return self.Operator(np.eye(self.dim))
+        return self.__operator
 
 
 class SimpleBasis(Basis):
+    '''
+    `SimpleBasis` is a subclass of `Basis` that allows a Basis object to 
+    be created on the fly from an `Operator`, a numpy array or a list instance.
+    For example:
+    
+    >>> SimpleBasis(parameters=<Parameters intance>, operator=<Operator, numpy.ndarray or list instance>)
+    '''
 
-    def init(self, dim=None, operator=None):
-        '''
-        Basis.init_basis is called during the basis initialisation
-        routines, allowing Basis subclasses to initialise themselves.
-        '''
+    def init(self, operator=None):
         self.__operator = self.Operator(operator)
+        shape = self.__operator.shape
+        if len(shape) != 2 or shape[0] != shape[1]:
+            raise ValueError("Basis operators must be square. Check your input.")
 
     @property
     def operator(self):
-        '''
-        Basis.operator must return an Operator object with basis states as the
-        columns. The operator should use the parameters instance provided by the
-        Basis subclass.
-        '''
         return self.__operator
 
 
 class SpinBasis(StandardBasis):
+    '''
+    `SpinBasis` is a subclass of `StandardBasis` that associates each element 
+    of the standard basis with a spin configuration. It assumes that there are
+    `n` spin-1/2 particles in the system, and thus requires the dimension to be
+    :math:`2^n`. It also implements conversion to and from string representation 
+    of the states.
+    '''
 
-    def init(self, dim=None):
+    def init(self):
         if self.dim is None:
             raise ValueError("Dimension must be specified.")
-        if self.dim % 2 == 1:
-            raise ValueError("Dimension must be even.")
+        power = math.log(self.dim,2)
+        if power != round(power):
+            raise ValueError("Dimension must be a power of 2.")
+        super(SpinBasis, self).init()
+    
+    @property
+    def operator(self):
+        return super(SpinBasis, self).operator
 
     def state_info(self, state, params={}):
         '''

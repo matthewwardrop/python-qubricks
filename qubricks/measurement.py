@@ -64,6 +64,7 @@ class Measurement(object):
 	__metaclass__ = ABCMeta
 
 	def __init__(self, *args, **kwargs):
+		self.__system = None
 		self.init(*args, **kwargs)
 		
 	def __call__(self, *args, **kwargs):
@@ -72,15 +73,20 @@ class Measurement(object):
 	@property
 	def system(self):
 		'''
-		A reference to a QuantumSystem instance. If a system instance is not provided, this returns None.
+		A reference to a QuantumSystem instance. If a system instance is not provided,
+		and an attempt to access this property is made, a RuntimeException is raised.
 		
 		You can specify a QuantumSystem using:
 		
 		>>> measurement.system = system
 		'''
+		if self.__system is None:
+			raise ValueError("QuantumSystem instance required by Measurement object, but a QuantumSystem object has not been configured.")
 		return self.__system
 	@system.setter
 	def system(self, value):
+		if not isinstance(value, QuantumSystem):
+			raise ValueError("Specified value must be a `QuantumSystem` instance.")
 		self.__system = value
 
 	@abstractmethod
@@ -841,3 +847,5 @@ class MeasurementWrapper(object):
 			results.save(path=path, samplers=samplers)
 
 		return results
+
+from .system import QuantumSystem

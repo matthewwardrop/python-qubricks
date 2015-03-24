@@ -1,19 +1,14 @@
 import warnings
-
-from parameters import Parameters
+import importlib
+import types
 
 import numpy as np
 
+from parameters import Parameters
+
 from .basis import Basis
-from .measurement import Measurements
 from .operator import Operator, OperatorSet
 from .stateoperator import StateOperator
-
-try:
-	import sage
-	from .integrator import SageIntegrator as Integrator
-except ImportError:
-	from .integrator import RealIntegrator as Integrator
 
 
 class QuantumSystem(object):
@@ -780,7 +775,7 @@ class QuantumSystem(object):
 		'''
 		return self.get_integrator(initial=psi_0s, **kwargs).start(times)
 	
-	def get_integrator(self, initial=None, input=None, output=None, threshold=False, components=None, operators=None, time_ops={}, params={}, **kwargs):
+	def get_integrator(self, initial=None, input=None, output=None, threshold=False, components=None, operators=None, time_ops={}, params={}, integrator='RealIntegrator', kwargs={}):
 		'''
 		This method is shorthand for manually creating an `Integrator` instance. It converts all operators and states 
 		into a consistent basis and form for use in the integrator.
@@ -802,6 +797,9 @@ class QuantumSystem(object):
 		:type time_ops: dict
 		:param params: Parameter overrides to use during basis transformations and integration.
 		:type params: dict
+		:param integrator: The integrator class to use as a Class; either as a string (in which case it is 
+			imported from `qubricks.wall`) or as a Class to be instantiated.
+		:type integrator: str or classobj
 		:param kwargs: Additional keyword arguments to pass to `Integrator` constructor.
 		:type kwargs: dict
 		'''
@@ -822,8 +820,18 @@ class QuantumSystem(object):
 				y_0s.append(self.ensemble(psi0, input=input, output=output, threshold=threshold))
 			else:
 				y_0s.append(self.state(psi0, input=input, output=output, threshold=threshold))
-
-		return Integrator(parameters=self.p, initial=y_0s, operators=ops, params=params, time_ops=time_ops, **kwargs)
+		
+		if type(integrator) is types.ClassType:
+			IntegratorClass = integrator
+		elif type(integrator) is str:
+			try:
+				IntegratorClass = getattr(importlib.import_module('qubricks.wall'),integrator)
+			except AttributeError:
+				raise ValueError("Could not find integrator class named '%s' in `qubricks.wall`." % integrator)
+		else:
+			raise ValueError("QuantumSystem does not know how to convert '%s' of type '%s' to an Integrator instance." % (integrator,type(integrator)))
+		
+		return IntegratorClass(parameters=self.p, initial=y_0s, operators=ops, params=params, time_ops=time_ops, **kwargs)
 	
 	def __integrator_operators(self, components=None, operators=None, basis=None, threshold=False):
 		'''
@@ -893,4 +901,5 @@ class QuantumSystem(object):
 		
 
 # Cheekily import some classes from wall
+from .measurement import Measurements
 from .wall import SchrodingerStateOperator, StandardBasis
