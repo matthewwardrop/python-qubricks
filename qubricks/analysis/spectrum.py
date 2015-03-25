@@ -1,14 +1,49 @@
 import numpy as np
 import warnings
 
-def energy_spectrum(system, states, ranges, components=[], hamiltonian=None, input=None, output=None, params={}, components_init=None, hamiltonian_init=None, params_init=None, complete=False):
+def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian=None, components=[], params={}, hamiltonian_init=None, components_init=None, params_init=None, complete=False):
     '''
-    Returns the energy eigenvalues of the states which map adiabatically to
-    those provided. The states provided should ideally be eigenstates when the
-    parameters are set according to `params_init` (but close enough is good enough).
-    Since this method uses the ordering of the eigenvalues to detect which eigenvalues
-    belong to which eigenstates, this method does not work in cases when the adiabatic
-    theorem is violated (i.e. when energy levels cross).
+    This function returns a list of sequence which are the energy eigenvalues of the 
+    states which map adiabatically to those provided in `states`. Consequently, the provided
+    states should be eigenstates of the Hamiltonian (determined by `components_init` or 
+    `hamiltonian_init`) when the parameters are set according to `params_init`. Where the initial
+    conditions are not set, the states are assumed to be eigenstates of the Hamiltonian provided 
+    for analysis (`hamiltonian` or `components`) in the corresponding parameter context `params`.
+    
+    :param system: A QuantumSystem instance.
+    :type system: QuantumSystem
+    :param states: A list of states (assumed to be eigenstates as noted above) for which we are
+        interested in examining the eigen-spectrum.
+    :type states: list of object
+    :param ranges: A range specification for iteration (see `Parameters.range`).
+    :type ranges: dict
+    :param input: The basis of the specified states.
+    :type input: str, Basis or None
+    :param output: The basis in which to perform the calculations.
+    :type output: str, Basis or None
+    :param hamiltonian: The Hamiltonian for which a spectrum is desired.
+    :type hamiltonian: Operator or None
+    :param components: If `hamiltonian` is `None`, the components to use from the provided
+        `QuantumSystem` (see `QuantumSystem.H`).
+    :type components: list of str
+    :param params: The parameter context in which to perform calculations.
+    :type params: dict
+    :param hamiltonian_init: The Hamiltonian for which provided states are eigenstates. If not
+        provided, and `components_init` is also not provided, this defaults to the value of `hamiltonian`.
+    :type hamiltonian_init: Operator
+    :param components_init: The components to enable such that the provided states are eigenstates.
+        If not provided, this defaults to the value of `components`. (see `QuantumSystem.H`)
+    :type components: list of str
+    :param params_init: The parameter context to be used such that the provided states are eigenstates
+        of the initial Hamiltonian. If not provided, defaults to the value of `params`.
+    :type params_init: dict
+    :param complete: If `True`, then the eigen-spectrum of the remaining states not specifically requested
+        are appended to the returned results.
+    :type complete: bool
+    
+    .. warning:: Since this method uses the ordering of the eigenvalues to detect which eigenvalues
+        belong to which eigenstates, this method does not work in cases when the adiabatic
+        theorem is violated (i.e. when energy levels cross).
     '''
 
     if hamiltonian_init is None:

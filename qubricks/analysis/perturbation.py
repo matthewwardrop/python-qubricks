@@ -1,6 +1,7 @@
 import numpy as np
 import sympy
 import warnings
+from qubricks.operator import Operator
 DEBUG = False
 
 
@@ -12,24 +13,31 @@ def debug(*messages):
 
 
 class Perturb(object):
+	'''
+	`Perturb` is a class that allows one to perform degenerate perturbation theory.
+	Currently it only supports doing `RSPT` perturbation theory, though in the future
+	this may be extended to `Kato` perturbation theory.
+	'''
 
-	def __init__(self, H_0=None, V=None, type='RSPT', subspace=None):
+	def __init__(self, H_0=None, V=None, subspace=None):
 		self.H_0 = H_0
 		self.V = V
-		self.type = type
-		self.__pts = {}
 		self.__subspace = list(subspace) if subspace is not None else None
-
-		self.E0s, self.Psi0s = get_unperturbed_states(H_0, V, subspace=subspace)
+		self.__rspt = RSPT(self.H_0, self.V, self.subspace)
 
 	@property
 	def dim(self):
+		'''
+		The dimension of :math:`H_0`.
+		'''
 		return self.H_0.shape[0]
 
-	def pt(self, index):
-		if index not in self.__pts:
-			self.__pts[index] = RSPT(self.H_0, self.V, index=self.subspace().index(index), E0s=self.E0s, Psi0s=self.Psi0s)
-		return self.__pts[index]
+	@property
+	def pt(self):
+		'''
+		A reference to the perturbation calculating object (e.g. RSPT).
+		'''
+		return self.__rspt
 
 	def subspace(self, subspace=None):
 		if subspace is not None:
@@ -38,142 +46,281 @@ class Perturb(object):
 			return self.__subspace
 		return range(self.dim)
 
+	def E(self, index, order=0, cumulative=True):
+		if cumulative:
+			return sum([self.pt.E(index,ord) for ord in range(order + 1)])
+		else:
+			return self.pt.E(index,order)
+	
+	def Psi(self, index, order=0, cumulative=True):
+		if cumulative:
+			return sum([self.pt.Psi(index,ord) for ord in range(order + 1)])
+		else:
+			return self.pt.Psi(index,order)
+
 	def energies(self, order=0, cumulative=True, subspace=None):
 		Es = []
 		for i in self.subspace(subspace):
 			if cumulative:
-				Es.append(sum([self.pt(i).E(ord) for ord in range(order + 1)]))
+				Es.append(sum([self.pt.E(i,ord) for ord in range(order + 1)]))
 			else:
-				Es.append(self.pt(i).E(order))
+				Es.append(self.pt.E(i,order))
 		return np.array(Es, dtype=object)
 
 	def wavefunctions(self, order=0, cumulative=True, subspace=None):
 		psis = []
 		for i in self.subspace(subspace):
 			if cumulative:
-				psis.append(sum([self.pt(i).Psi(ord) for ord in range(order + 1)]))
+				psis.append(sum([self.pt.Psi(i,ord) for ord in range(order + 1)]))
 			else:
-				psis.append(self.pt(i).Psi(order))
+				psis.append(self.pt.Psi(i,order))
 		return np.array(psis, dtype=object)
 
 	def Heff_adiabatic(self, order=0, cumulative=True, subspace=None):
 		return np.diag(self.energies(order=order, cumulative=cumulative, subspace=self.subspace(subspace)))
 
 	def Heff(self, order=0, cumulative=True, subspace=None):
-		raise NotImplementedError("Effective Hamiltonian is not yet implemented.")
+		Heff = np.zeros(self.H_0.shape)
+		for index in self.subspace(subspace):
+			E = self.E(index, order, cumulative)
+			psi = self.Psi(index, order, cumulative)
+			Heff += E*np.outer(psi,psi)
+		return Heff
+
 
 class RSPT(object):
-	# Rayleigh-Schroedinger Perturbation Theory
+	'''
+	This class implements (degenerate) Rayleigh-Schroedinger Perturbation Theory.
+	It is geared toward generating symbolic solutions, in the hope that the perturbation
+	theory might provide insight into the quantum system at hand. For numerical solutions,
+	you are better off simply diagonalising the evaluated Hamiltonian.
+	
+	.. warning:: This method currently only supports diagonal :math:`H_0`.
+	
+	:param H_0: The unperturbed Hamiltonian to consider.
+	:type H_0: Operator, sympy matrix or numpy array
+	:param V: The Hamiltonian perturbation to consider.
+	:type V: Operator, sympy matrix or numpy array
+	:param subspace: The state indices to which attention should be restricted.
+	:type subspace: list of int
+	'''
 
-	def __init__(self, H_0=None, V=None, index=0, E0s=None, Psi0s=None):
-		self.__Es = {}
-		self.__Psis = {}
+	def __init__(self, H_0=None, V=None, subspace=None):
+		self.__cache = {
+					'Es': {},
+					'Psis': {}
+					}
 
-		self.H_0 = np.array(H_0)
-		self.V = np.array(V)
-
-		if E0s is None or Psi0s is None:
-			E0s, Psi0s = get_unperturbed_states(H_0, V)
-		self.E0s = E0s
-		self.Psi0s = Psi0s
-
-		self.index = index
-
+		self.H_0 = H_0
+		self.V = V
+		
+		self.subspace = subspace
+		
+		self.E0s, self.Psi0s = self.get_unperturbed_states()
+	
+	@property
+	def H_0(self):
+		return self.__H_0
+	@H_0.setter
+	def H_0(self, H_0):
+		if isinstance(H_0, Operator):
+			self.__H_0 = np.array(H_0.symbolic())
+		else:
+			self.__H_0 = np.array(H_0)
+	
+	@property
+	def V(self):
+		return self.__V
+	@V.setter
+	def V(self, V):
+		if isinstance(V, Operator):
+			self.__V = np.array(V.symbolic())
+		else:
+			self.__V = np.array(V)
+	
+	def __store(self, store, index, order, value=None):
+		storage = self.__cache[store]
+		if value is None:
+			if storage.get(index) is not None:
+				return storage[index].get(order)
+			return None
+		
+		if index not in storage:
+			storage[index] = {}
+		storage[index][order] = value
+	
+	def __Es(self, index, order, value=None):
+		self.__store('Es', index, order, value)
+	
+	def __Psis(self, index, order, value=None):
+		self.__store('Psis', index, order, value)
+	
+	def get_unperturbed_states(self):
+		'''
+		This method returns the unperturbed eigenvalues and eigenstates as
+		a tuple of energies and state-vectors.
+		
+		.. note:: This is the only method that does not support a non-diagonal
+			:math:`H_0`. While possible to implement, it is not currently clear
+			that a non-diagonal :math:`H_0` is actually terribly useful.
+		'''
+		
+		# Check if H_0 is diagonal
+		if not (self.H_0 - np.diag(self.H_0.diagonal()) == 0).all():
+			raise ValueError("Provided H_0 is not diagonal")
+		
+		E0s = []
+		for i in xrange(self.H_0.shape[0]):
+			E0s.append(self.H_0[i, i])
+	
+		subspace = self.subspace
+		if subspace is None:
+			subspace = range(self.H_0.shape[0])
+	
+		done = set()
+		psi0s = [None] * len(E0s)
+		for i, E0 in enumerate(E0s):
+			if i not in done:
+				degenerate_subspace = np.where(np.array(E0s) == E0)[0]
+	
+				if len(degenerate_subspace) > 1 and not (all(e in subspace for e in degenerate_subspace) or all(e not in subspace for e in degenerate_subspace)):
+					warnings.warn("Chosen subspace %s overlaps with degenerate subspace of H_0 %s. Extending the subspace to include these states." % (subspace, degenerate_subspace))
+					subspace = set(subspace).union(degenerate_subspace)
+	
+				if len(degenerate_subspace) == 1 or i not in subspace:
+					v = np.zeros(self.H_0.shape[0], dtype='object')
+					v[i] = sympy.S('1')
+					psi0s[i] = v
+					done.add(i)
+				else:
+					m = sympy.Matrix(self.V)[tuple(degenerate_subspace), tuple(degenerate_subspace)]
+					l = 0
+					for (_energy, multiplicity, vectors) in m.eigenvects():
+						for k in xrange(multiplicity):
+							v = np.zeros(self.H_0.shape[0], dtype=object)
+							v[np.array(degenerate_subspace)] = np.array(vectors[k].transpose().normalized()).flatten()
+							psi0s[degenerate_subspace[l]] = v
+							done.add(degenerate_subspace[l])
+							l += 1
+	
+		return E0s, psi0s
+	
 	@property
 	def dim(self):
+		'''
+		The dimension of :math:`H_0`.
+		'''
 		return self.H_0.shape[0]
 
-	def P(self):  # Assumes diagonal H_0
-		a = np.eye(self.dim, dtype=object)
-		for i in xrange(self.dim):
-			if self.E0s[i] == self.E0s[self.index]:
-				a[self.index, self.index] = 0
-		debug("P", a)
-		return a
-
-	def E(self, order=0):
-		if order in self.__Es:
-			return self.__Es[order]
+	def E(self, index, order=0):
+		r'''
+		This method returns the `order` th correction to the eigenvalue associated 
+		with the `index` th state using RSPT.
+		
+		The algorithm:
+			If `order` is 0, return the unperturbed energy.
+			
+			If `order` is even:
+			
+			.. math::
+			
+				E_n = \left< \Psi_{n/2} \right|  V \left| \Psi_{n/2-1} \right> - \sum_{k=1}^{n/2} \sum_{l=1}^{n/2-1} E_{n-k-l} \left< \Psi_k \big | \Psi_l \right>
+			
+			If `order` is odd:
+			
+			.. math::
+				
+				E_n = \left< \Psi_{(n-1)/2} \right| V \left| \Psi_{(n-1)/2} \right> - \sum_{k=1}^{(n-1)/2} \sum_{l=1}^{(n-1)/2} E_{n-k-l} \left< \Psi_k \big| \Psi_l \right>
+			
+			Where subscripts indicate that the subscripted symbol is correct to
+			the indicated order in RSPT, and where `n` = `order`.
+		
+		:param index: The index of the state to be considered.
+		:type index: int
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		'''
+		if self.__Es(index, order) is not None:
+			return self.__Es(index, order)
 
 		if order == 0:
-			debug("E", order, self.E0s[self.index])
-			return self.E0s[self.index]
+			debug("E", order, self.E0s[index])
+			return self.E0s[index]
 
 		elif order % 2 == 0:
-			r = self.Psi(order / 2).dot(self.V).dot(self.Psi(order / 2 - 1))
+			r = self.Psi(index, order / 2).dot(self.V).dot(self.Psi(index, order / 2 - 1))
 			for k in xrange(1, order / 2 + 1):
 				for l in xrange(1, order / 2):
-					r -= self.E(order - k - l) * self.Psi(k).dot(self.Psi(l))
+					r -= self.E(index, order - k - l) * self.Psi(index, k).dot(self.Psi(index, l))
 
 		else:
-			r = self.Psi((order - 1) / 2).dot(self.V).dot(self.Psi((order - 1) / 2))
+			r = self.Psi(index, (order - 1) / 2).dot(self.V).dot(self.Psi(index, (order - 1) / 2))
 			for k in xrange(1, (order - 1) / 2 + 1):
 				for l in xrange(1, (order - 1) / 2 + 1):
-					r -= self.E(order - k - l) * self.Psi(k).dot(self.Psi(l))
+					r -= self.E(index, order - k - l) * self.Psi(index, k).dot(self.Psi(index, l))
 
 		debug("E", order, r)
-		self.__Es[order] = r
+		self.__Es(index, order, r)
 		return r
 
-	def inv(self):  # Assumes diagonal H_0
-		#inv = sympy.Matrix(self.E(0)*np.eye(self.H_0.shape[0]) - self.H_0).inv()
+	def inv(self, index):
+		r'''
+		This method returns: :math:`(E_0 - H_0)^{-1} P`, for use in `Psi`,
+		which is computed using:
+		
+		.. math::
+			A_{ij} = \delta_{ij} \delta_{i0} (E^n_0 - E^i_0)^{-1}
+		
+		Where `n` = `order`.
+		
+		.. note:: In cases where a singularity would result, `0` is used instead.
+			This works because the projector off the subspace `P` 
+			reduces support on the singularities to zero.
+		
+		:param index: The index of the state to be considered.
+		:type index: int
+		'''
 		inv = np.zeros(self.H_0.shape, dtype=object)
 		for i in xrange(self.dim):
-			if self.E0s[i] != self.E0s[self.index]:
-				inv[i, i] = 1 / (self.E(0) - self.H_0[i, i])
+			if self.E0s[i] != self.E0s[index]:
+				inv[i, i] = 1 / (self.E(index, 0) - self.E0s[i])
 		debug("inv", inv)
 		return inv
 
-	def Psi(self, order=0):
-		if order in self.__Psis:
-			return self.__Psis[order]
+	def Psi(self, index, order=0):
+		r'''
+		This method returns the `order` th correction to the `index` th eigenstate using RSPT.
+		
+		The algorithm:
+			If `order` is 0, return the unperturbed eigenstate.
+			
+			Otherwise, return:
+			
+			.. math::
+				\left| \Psi_n \right> = (E_0-H_0)^{-1} P \left( V \left|\Psi_{n-1}\right> - \sum_{k=1}^n E_k \left|\Psi_{n-k}\right> \right)
+				
+			Where `P` is the projector off the degenerate subspace enveloping 
+			the indexed state.
+		
+		:param index: The index of the state to be considered.
+		:type index: int
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		'''
+		if self.__Psis(index, order) is not None:
+			return self.__Psis(index, order)
 
 		if order == 0:
-			debug("wf", order, self.Psi0s[self.index])
-			return self.Psi0s[self.index]
+			debug("wf", order, self.Psi0s[index])
+			return self.Psi0s[index]
 
-		b = np.dot(self.V, self.Psi(order - 1))
+		b = np.dot(self.V, self.Psi(index, order - 1))
 		for k in xrange(1, order + 1):
-			b -= self.E(k) * self.Psi(order - k)
+			b -= self.E(index, k) * self.Psi(index, order - k)
+		
+		psi = self.inv(index).dot(b)
+		self.__Psis(index, order, psi)
+		debug("wf", order, psi)
+		return psi
 
-		self.__Psis[order] = self.inv().dot(self.P()).dot(b)
-		debug("wf", order, self.__Psis[order])
-		return self.__Psis[order]
 
-
-def get_unperturbed_states(H_0, V, subspace=None):
-	warnings.warn("Assuming H_0 is diagonal. If H_0 is not diagonal, these methods will fail.")
-	E0s = []
-	for i in xrange(H_0.shape[0]):
-		E0s.append(H_0[i, i])
-
-	if subspace is None:
-		subspace = range(H_0.shape[0])
-
-	done = set()
-	psi0s = [None] * len(E0s)
-	for i, E0 in enumerate(E0s):
-		if i not in done:
-			degenerate_subspace = np.where(np.array(E0s) == E0)[0]
-
-			if len(degenerate_subspace) > 1 and not (all(e in subspace for e in degenerate_subspace) or all(e not in subspace for e in degenerate_subspace)):
-				warnings.warn("Chosen subspace %s overlaps with degenerate subspace of H_0 %s. Extending the subspace to include these states." % (subspace, degenerate_subspace))
-				subspace = set(subspace).union(degenerate_subspace)
-
-			if len(degenerate_subspace) == 1 or i not in subspace:
-				v = np.zeros(H_0.shape[0], dtype='object')
-				v[i] = sympy.S('1')
-				psi0s[i] = v
-				done.add(i)
-			else:
-				m = sympy.Matrix(V)[tuple(degenerate_subspace), tuple(degenerate_subspace)]
-				l = 0
-				for (_energy, multiplicity, vectors) in m.eigenvects():
-					for k in xrange(multiplicity):
-						v = np.zeros(H_0.shape[0], dtype=object)
-						v[np.array(degenerate_subspace)] = np.array(vectors[k].transpose().normalized()).flatten()
-						psi0s[degenerate_subspace[l]] = v
-						done.add(degenerate_subspace[l])
-						l += 1
-
-	return E0s, psi0s
