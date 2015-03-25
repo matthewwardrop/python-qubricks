@@ -15,15 +15,26 @@ def debug(*messages):
 class Perturb(object):
 	'''
 	`Perturb` is a class that allows one to perform degenerate perturbation theory.
-	Currently it only supports doing `RSPT` perturbation theory, though in the future
-	this may be extended to `Kato` perturbation theory.
+	The perturbation theory logic is intentionally separated into a different class for clarity.
+	Currently it only supports using `RSPT` for perturbation theory, though in the future
+	this may be extended to `Kato` perturbation theory. The advantage of using this class
+	as compared to directly using the `RSPT` class is that the energies and eigenstates
+	can be computed cumulatively, as well as gaining access to shorthand constructions
+	of effective Hamiltonians.
+	
+	:param H_0: The unperturbed Hamiltonian to consider.
+	:type H_0: Operator, sympy matrix or numpy array
+	:param V: The Hamiltonian perturbation to consider.
+	:type V: Operator, sympy matrix or numpy array
+	:param subspace: The state indices to which attention should be restricted.
+	:type subspace: list of int
 	'''
 
 	def __init__(self, H_0=None, V=None, subspace=None):
 		self.H_0 = H_0
 		self.V = V
-		self.__subspace = list(subspace) if subspace is not None else None
-		self.__rspt = RSPT(self.H_0, self.V, self.subspace)
+		self.__subspace_default = list(subspace) if subspace is not None else None
+		self.__rspt = RSPT(self.H_0, self.V, self.__subspace())
 
 	@property
 	def dim(self):
@@ -39,53 +50,128 @@ class Perturb(object):
 		'''
 		return self.__rspt
 
-	def subspace(self, subspace=None):
+	def __subspace(self, subspace=None):
 		if subspace is not None:
 			return subspace
-		if self.__subspace is not None:
-			return self.__subspace
+		if self.__subspace_default is not None:
+			return self.__subspace_default
 		return range(self.dim)
 
 	def E(self, index, order=0, cumulative=True):
+		'''
+		This method returns the `index` th eigenvalue correct to order `order` if
+		`cumulative` is `True`; or the the `order` th correction otherwise.
+		
+		:param index: The index of the state to be considered.
+		:type index: int
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		:param cumulative: `True` if all order corrections up to `order` should be summed
+			(including the initial unperturbed energy).
+		:type cumulative: bool
+		'''
 		if cumulative:
 			return sum([self.pt.E(index,ord) for ord in range(order + 1)])
 		else:
 			return self.pt.E(index,order)
 	
 	def Psi(self, index, order=0, cumulative=True):
+		'''
+		This method returns the `index` th eigenstate correct to order `order` if
+		`cumulative` is `True`; or the the `order` th correction otherwise.
+		
+		:param index: The index of the state to be considered.
+		:type index: int
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		:param cumulative: `True` if all order corrections up to `order` should be summed
+			(including the initial unperturbed state).
+		:type cumulative: bool
+		'''
 		if cumulative:
 			return sum([self.pt.Psi(index,ord) for ord in range(order + 1)])
 		else:
 			return self.pt.Psi(index,order)
 
-	def energies(self, order=0, cumulative=True, subspace=None):
+	def Es(self, order=0, cumulative=True, subspace=None):
+		'''
+		This method returns a the energies associated with the indices
+		in `subspaces`. Internally this uses `Perturb.E`, passing through
+		the keyword arguments `order` and `cumulative` for each index in
+		subspace.
+		
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		:param cumulative: `True` if all order corrections up to `order` should be summed
+			(including the initial unperturbed energy).
+		:type cumulative: bool
+		:param subspace: The set of indices for which to return the associated energies.
+		:type subspace: list of int
+		'''
 		Es = []
-		for i in self.subspace(subspace):
+		for i in self.__subspace(subspace):
 			if cumulative:
 				Es.append(sum([self.pt.E(i,ord) for ord in range(order + 1)]))
 			else:
 				Es.append(self.pt.E(i,order))
-		return np.array(Es, dtype=object)
+		return Es
 
-	def wavefunctions(self, order=0, cumulative=True, subspace=None):
+	def Psis(self, order=0, cumulative=True, subspace=None):
+		'''
+		This method returns a the eigenstates associated with the indices
+		in `subspaces`. Internally this uses `Perturb.Psi`, passing through
+		the keyword arguments `order` and `cumulative` for each index in
+		subspace.
+		
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		:param cumulative: `True` if all order corrections up to `order` should be summed
+			(including the initial unperturbed state).
+		:type cumulative: bool
+		:param subspace: The set of indices for which to return the associated energies.
+		:type subspace: list of int
+		'''
 		psis = []
-		for i in self.subspace(subspace):
+		for i in self.__subspace(subspace):
 			if cumulative:
 				psis.append(sum([self.pt.Psi(i,ord) for ord in range(order + 1)]))
 			else:
 				psis.append(self.pt.Psi(i,order))
 		return np.array(psis, dtype=object)
 
-	def Heff_adiabatic(self, order=0, cumulative=True, subspace=None):
-		return np.diag(self.energies(order=order, cumulative=cumulative, subspace=self.subspace(subspace)))
-
-	def Heff(self, order=0, cumulative=True, subspace=None):
-		Heff = np.zeros(self.H_0.shape)
-		for index in self.subspace(subspace):
+	def H_eff(self, order=0, cumulative=True, subspace=None, adiabatic=False):
+		'''
+		This method returns the effective Hamiltonian on the subspace indicated,
+		using energies and eigenstates computed using `Perturb.E` and `Perturb.Psi`.
+		If `adiabatic` is `True`, the effective Hamiltonian describing the energies of
+		the instantaneous eigenstates is returned in the basis of the instantaneous
+		eigenstates (i.e. the Hamiltonian is diagonal with energies corresponding to
+		the instantaneous energies). Otherwise, the Hamiltonian returned is the sum over
+		the indices of the subspace of the perturbed energies multiplied by the outer
+		product of the corresponding perturbed eigenstates.
+		
+		:param order: The order of perturbation theory to apply.
+		:type order: int
+		:param cumulative: `True` if all order corrections up to `order` should be summed
+			(including the initial unperturbed energies and states).
+		:type cumulative: bool
+		:param subspace: The set of indices for which to return the associated energies.
+		:type subspace: list of int
+		:param adiabatic: `True` if the adiabatic effective Hamiltonian (as described above)
+			should be returned. `False` otherwise.
+		:type adiabatic: bool
+		'''
+		subspace = self.__subspace(subspace)
+		
+		H_eff = np.zeros( (len(subspace),len(subspace)) , dtype=object)
+		for index in subspace:
 			E = self.E(index, order, cumulative)
-			psi = self.Psi(index, order, cumulative)
-			Heff += E*np.outer(psi,psi)
-		return Heff
+			if adiabatic:
+				H_eff[index,index] = E
+			else:
+				psi = self.Psi(index, order, cumulative)
+				H_eff += E*np.outer(psi,psi)
+		return H_eff
 
 
 class RSPT(object):
