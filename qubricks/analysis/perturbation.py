@@ -194,7 +194,8 @@ class RSPT(object):
 	def __init__(self, H_0=None, V=None, subspace=None):
 		self.__cache = {
 					'Es': {},
-					'Psis': {}
+					'Psis': {},
+					'inv': {}
 					}
 
 		self.H_0 = H_0
@@ -227,8 +228,8 @@ class RSPT(object):
 	def __store(self, store, index, order, value=None):
 		storage = self.__cache[store]
 		if value is None:
-			if storage.get(index) is not None:
-				return storage[index].get(order)
+			if index in storage:
+				return storage[index].get(order,None)
 			return None
 
 		if index not in storage:
@@ -236,10 +237,10 @@ class RSPT(object):
 		storage[index][order] = value
 
 	def __Es(self, index, order, value=None):
-		self.__store('Es', index, order, value)
+		return self.__store('Es', index, order, value)
 
 	def __Psis(self, index, order, value=None):
-		self.__store('Psis', index, order, value)
+		return self.__store('Psis', index, order, value)
 
 	def get_unperturbed_states(self):
 		'''
@@ -366,11 +367,17 @@ class RSPT(object):
 		:param index: The index of the state to be considered.
 		:type index: int
 		'''
+		if index in self.__cache['inv']:
+			return self.__cache['inv'][index]
+
 		inv = np.zeros(self.H_0.shape, dtype=object)
 		for i in xrange(self.dim):
 			if self.E0s[i] != self.E0s[index]:
 				inv[i, i] = 1 / (self.E(index, 0) - self.E0s[i])
 		debug("inv", inv)
+
+		self.__cache['inv'][index] = inv
+
 		return inv
 
 	def Psi(self, index, order=0):
