@@ -9,7 +9,7 @@ def debug(*messages):
 	if DEBUG:
 		for message in messages:
 			print messages,
-	print
+		print
 
 
 class Perturb(object):
@@ -21,7 +21,7 @@ class Perturb(object):
 	as compared to directly using the `RSPT` class is that the energies and eigenstates
 	can be computed cumulatively, as well as gaining access to shorthand constructions
 	of effective Hamiltonians.
-	
+
 	:param H_0: The unperturbed Hamiltonian to consider.
 	:type H_0: Operator, sympy matrix or numpy array
 	:param V: The Hamiltonian perturbation to consider.
@@ -61,7 +61,7 @@ class Perturb(object):
 		'''
 		This method returns the `index` th eigenvalue correct to order `order` if
 		`cumulative` is `True`; or the the `order` th correction otherwise.
-		
+
 		:param index: The index of the state to be considered.
 		:type index: int
 		:param order: The order of perturbation theory to apply.
@@ -74,12 +74,12 @@ class Perturb(object):
 			return sum([self.pt.E(index,ord) for ord in range(order + 1)])
 		else:
 			return self.pt.E(index,order)
-	
+
 	def Psi(self, index, order=0, cumulative=True):
 		'''
 		This method returns the `index` th eigenstate correct to order `order` if
 		`cumulative` is `True`; or the the `order` th correction otherwise.
-		
+
 		:param index: The index of the state to be considered.
 		:type index: int
 		:param order: The order of perturbation theory to apply.
@@ -99,7 +99,7 @@ class Perturb(object):
 		in `subspaces`. Internally this uses `Perturb.E`, passing through
 		the keyword arguments `order` and `cumulative` for each index in
 		subspace.
-		
+
 		:param order: The order of perturbation theory to apply.
 		:type order: int
 		:param cumulative: `True` if all order corrections up to `order` should be summed
@@ -122,7 +122,7 @@ class Perturb(object):
 		in `subspaces`. Internally this uses `Perturb.Psi`, passing through
 		the keyword arguments `order` and `cumulative` for each index in
 		subspace.
-		
+
 		:param order: The order of perturbation theory to apply.
 		:type order: int
 		:param cumulative: `True` if all order corrections up to `order` should be summed
@@ -149,7 +149,7 @@ class Perturb(object):
 		the instantaneous energies). Otherwise, the Hamiltonian returned is the sum over
 		the indices of the subspace of the perturbed energies multiplied by the outer
 		product of the corresponding perturbed eigenstates.
-		
+
 		:param order: The order of perturbation theory to apply.
 		:type order: int
 		:param cumulative: `True` if all order corrections up to `order` should be summed
@@ -162,7 +162,7 @@ class Perturb(object):
 		:type adiabatic: bool
 		'''
 		subspace = self.__subspace(subspace)
-		
+
 		H_eff = np.zeros( (len(subspace),len(subspace)) , dtype=object)
 		for index in subspace:
 			E = self.E(index, order, cumulative)
@@ -180,9 +180,9 @@ class RSPT(object):
 	It is geared toward generating symbolic solutions, in the hope that the perturbation
 	theory might provide insight into the quantum system at hand. For numerical solutions,
 	you are better off simply diagonalising the evaluated Hamiltonian.
-	
+
 	.. warning:: This method currently only supports diagonal :math:`H_0`.
-	
+
 	:param H_0: The unperturbed Hamiltonian to consider.
 	:type H_0: Operator, sympy matrix or numpy array
 	:param V: The Hamiltonian perturbation to consider.
@@ -199,11 +199,11 @@ class RSPT(object):
 
 		self.H_0 = H_0
 		self.V = V
-		
+
 		self.subspace = subspace
-		
+
 		self.E0s, self.Psi0s = self.get_unperturbed_states()
-	
+
 	@property
 	def H_0(self):
 		return self.__H_0
@@ -213,7 +213,7 @@ class RSPT(object):
 			self.__H_0 = np.array(H_0.symbolic())
 		else:
 			self.__H_0 = np.array(H_0)
-	
+
 	@property
 	def V(self):
 		return self.__V
@@ -223,56 +223,56 @@ class RSPT(object):
 			self.__V = np.array(V.symbolic())
 		else:
 			self.__V = np.array(V)
-	
+
 	def __store(self, store, index, order, value=None):
 		storage = self.__cache[store]
 		if value is None:
 			if storage.get(index) is not None:
 				return storage[index].get(order)
 			return None
-		
+
 		if index not in storage:
 			storage[index] = {}
 		storage[index][order] = value
-	
+
 	def __Es(self, index, order, value=None):
 		self.__store('Es', index, order, value)
-	
+
 	def __Psis(self, index, order, value=None):
 		self.__store('Psis', index, order, value)
-	
+
 	def get_unperturbed_states(self):
 		'''
 		This method returns the unperturbed eigenvalues and eigenstates as
 		a tuple of energies and state-vectors.
-		
+
 		.. note:: This is the only method that does not support a non-diagonal
 			:math:`H_0`. While possible to implement, it is not currently clear
 			that a non-diagonal :math:`H_0` is actually terribly useful.
 		'''
-		
+
 		# Check if H_0 is diagonal
 		if not (self.H_0 - np.diag(self.H_0.diagonal()) == 0).all():
 			raise ValueError("Provided H_0 is not diagonal")
-		
+
 		E0s = []
 		for i in xrange(self.H_0.shape[0]):
 			E0s.append(self.H_0[i, i])
-	
+
 		subspace = self.subspace
 		if subspace is None:
 			subspace = range(self.H_0.shape[0])
-	
+
 		done = set()
 		psi0s = [None] * len(E0s)
 		for i, E0 in enumerate(E0s):
 			if i not in done:
 				degenerate_subspace = np.where(np.array(E0s) == E0)[0]
-	
+
 				if len(degenerate_subspace) > 1 and not (all(e in subspace for e in degenerate_subspace) or all(e not in subspace for e in degenerate_subspace)):
 					warnings.warn("Chosen subspace %s overlaps with degenerate subspace of H_0 %s. Extending the subspace to include these states." % (subspace, degenerate_subspace))
 					subspace = set(subspace).union(degenerate_subspace)
-	
+
 				if len(degenerate_subspace) == 1 or i not in subspace:
 					v = np.zeros(self.H_0.shape[0], dtype='object')
 					v[i] = sympy.S('1')
@@ -288,9 +288,9 @@ class RSPT(object):
 							psi0s[degenerate_subspace[l]] = v
 							done.add(degenerate_subspace[l])
 							l += 1
-	
+
 		return E0s, psi0s
-	
+
 	@property
 	def dim(self):
 		'''
@@ -300,27 +300,27 @@ class RSPT(object):
 
 	def E(self, index, order=0):
 		r'''
-		This method returns the `order` th correction to the eigenvalue associated 
+		This method returns the `order` th correction to the eigenvalue associated
 		with the `index` th state using RSPT.
-		
+
 		The algorithm:
 			If `order` is 0, return the unperturbed energy.
-			
+
 			If `order` is even:
-			
+
 			.. math::
-			
+
 				E_n = \left< \Psi_{n/2} \right|  V \left| \Psi_{n/2-1} \right> - \sum_{k=1}^{n/2} \sum_{l=1}^{n/2-1} E_{n-k-l} \left< \Psi_k \big | \Psi_l \right>
-			
+
 			If `order` is odd:
-			
+
 			.. math::
-				
+
 				E_n = \left< \Psi_{(n-1)/2} \right| V \left| \Psi_{(n-1)/2} \right> - \sum_{k=1}^{(n-1)/2} \sum_{l=1}^{(n-1)/2} E_{n-k-l} \left< \Psi_k \big| \Psi_l \right>
-			
+
 			Where subscripts indicate that the subscripted symbol is correct to
 			the indicated order in RSPT, and where `n` = `order`.
-		
+
 		:param index: The index of the state to be considered.
 		:type index: int
 		:param order: The order of perturbation theory to apply.
@@ -353,16 +353,16 @@ class RSPT(object):
 		r'''
 		This method returns: :math:`(E_0 - H_0)^{-1} P`, for use in `Psi`,
 		which is computed using:
-		
+
 		.. math::
 			A_{ij} = \delta_{ij} \delta_{i0} (E^n_0 - E^i_0)^{-1}
-		
+
 		Where `n` = `order`.
-		
+
 		.. note:: In cases where a singularity would result, `0` is used instead.
-			This works because the projector off the subspace `P` 
+			This works because the projector off the subspace `P`
 			reduces support on the singularities to zero.
-		
+
 		:param index: The index of the state to be considered.
 		:type index: int
 		'''
@@ -376,18 +376,18 @@ class RSPT(object):
 	def Psi(self, index, order=0):
 		r'''
 		This method returns the `order` th correction to the `index` th eigenstate using RSPT.
-		
+
 		The algorithm:
 			If `order` is 0, return the unperturbed eigenstate.
-			
+
 			Otherwise, return:
-			
+
 			.. math::
 				\left| \Psi_n \right> = (E_0-H_0)^{-1} P \left( V \left|\Psi_{n-1}\right> - \sum_{k=1}^n E_k \left|\Psi_{n-k}\right> \right)
-				
-			Where `P` is the projector off the degenerate subspace enveloping 
+
+			Where `P` is the projector off the degenerate subspace enveloping
 			the indexed state.
-		
+
 		:param index: The index of the state to be considered.
 		:type index: int
 		:param order: The order of perturbation theory to apply.
@@ -403,10 +403,8 @@ class RSPT(object):
 		b = np.dot(self.V, self.Psi(index, order - 1))
 		for k in xrange(1, order + 1):
 			b -= self.E(index, k) * self.Psi(index, order - k)
-		
+
 		psi = self.inv(index).dot(b)
 		self.__Psis(index, order, psi)
 		debug("wf", order, psi)
 		return psi
-
-
