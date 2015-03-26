@@ -74,7 +74,7 @@ def _model_wrapper(dependency=None, message=None, complete=None):
 				except Exception, e:
 					print coloured("Error", "RED", True)
 					traceback.print_exc()
-					raise e
+					sys.exit()
 				
 				if complete is not None:
 					print coloured("DONE" if complete is None else complete, "GREEN", True)
