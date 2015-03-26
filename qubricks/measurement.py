@@ -104,19 +104,27 @@ class Measurement(object):
 		'''
 		This method should return the value of a measurement as a numpy array with
 		data type and shape as specified in `result_type` and `result_shape` respectively.
-		Note that it is possible to return types other than numpy array and still
-		be compatible with iteration (see MeasurementWrapper) provided you overload
-		the `iterate_results_init` and `iterate_results_add` methods.
 		
-		Typically, `data` will be provided by the MeasurementWrapper instance, and will
-		be a structured numpy array as returned by `Integrator.integrate`; with a consistent
-		set of values for `times` and `psi_0s`. If `data` is not provided, it can 
-		use the reference to a QuantumSystem instance in `Measurement.system` to
-		generate its own integration results. Note that if `Measurement.is_independent` is
-		`True`, then it will always have to do this (if integration results are required).
+		.. note:: It is possible to return types other than numpy array and still
+			be compatible with iteration (see MeasurementWrapper) provided you overload
+			the `iterate_results_init` and `iterate_results_add` methods.
+			
+		Implementations of `measure` will typically be provided by integration data
+		by a `MeasurementWrapper` instance (which will be a structured numpy array 
+		as returned by `Integrator.integrate) as the value for the `data` keyword.
+		A consistent set of values for `times` and `psi_0s` will also be passed.
+		
+		.. note:: If an implementation of `measure` omits the `data` keyword, QuBricks
+			assumes that all integration required by the `measure` operator will be
+			performed internally. It can use the reference to a QuantumSystem 
+			instance at `Measurement.system` for this purpose. If the `data` keyword
+			is present (for testing/etc), but pre-computed integration data is undesired,
+			override the `is_independent` method to return `True`. If external data
+			is *required*, then simply remove the default value of `data`.
 		
 		Apart from the required keywords: `data`, `times`, `psi_0s` and `params`; any additional
-		keywords can be specified. See MeasurementWrapper to see how they will filter through.
+		keywords can be specified. Refer to the documentation of `MeasurementWrapper` to 
+		see how their values will filter through.
 		
 		.. note:: Although the keywords `times` and `psi_0s` are necessary, it is not 
 			necessary to use these keywords. As such, Measurement operators need not
@@ -607,7 +615,7 @@ class MeasurementWrapper(object):
 	@property
 	def __integration_needed(self):
 		for meas in self.measurements.values():
-			if not meas.is_independent:
+			if not meas.is_independent and 'data' in inspect.getargspec(meas.measure)[0]:
 				return True
 		return False
 
@@ -667,7 +675,7 @@ class MeasurementWrapper(object):
 
 		res = {}
 		for name, measurement in self.measurements.items():
-			if measurement.is_independent:
+			if measurement.is_independent or 'data' in inspect.getargspec(measurement.measure)[0]:
 				res[name] = measurement.measure(**kwargs)
 			else:
 				res[name] = measurement.measure(data=data, **kwargs)
