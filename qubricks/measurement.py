@@ -338,7 +338,7 @@ class MeasurementIterationResults(object):
 
 	def is_complete(self, measurements={}):
 		'''
-		This method calls the `Measurement.is_complete` method with the appropriate
+		This method calls the `Measurement.iterate_is_complete` method with the appropriate
 		results for each of the measurements provided. If False for any of these 
 		measurements, False is returned.
 		
@@ -348,7 +348,7 @@ class MeasurementIterationResults(object):
 		for name, measurement in measurements.items():
 			if self.results.get(name,None) is None:
 				return False
-			if not measurement.is_complete(self.results[name]):
+			if not measurement.iterate_is_complete(self.results[name]):
 				return False
 		return True
 
