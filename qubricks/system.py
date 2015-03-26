@@ -15,7 +15,7 @@ class QuantumSystem(object):
 	'''
 	The `QuantumSystem` class is used to describe particular quantum systems,
 	and provides utility functions which assists in the analysis of these
-	systems. While it is possible to directly instantiate a `QuantumSystem` 
+	systems. While it is possible to directly instantiate a `QuantumSystem`
 	object, and to programmatically add the description of the quantum system
 	of interest, it is more common to subclass it or to use a ready-made subclass
 	from `qubricks.wall.systems`.
@@ -51,19 +51,19 @@ class QuantumSystem(object):
 		Documentation pertaining to the behaviour of these methods is available
 		below. Importantly, these methods will always be called in the order
 		given above.
-		
+
 	Integration and Measurement:
 		Perhaps among the most common operations you might want to perform
 		with your quantum system is simulated time-evolution and measurement.
-		
+
 		Integration is handled as documented in the `QuantumSystem.integrate` method.
-		
+
 		Measurement is handled using the `measure` attribute, which points to
 		a `Measurements` object. For example, if a measurement named 'fidelity'
 		has been added to this QuantumSystem, you could use:
-		
+
 		>>> system.measure.fidelity(...)
-		
+
 		For more, see the documentation for `Measurements`.
 	'''
 
@@ -104,19 +104,19 @@ class QuantumSystem(object):
 		if isinstance(bases, dict):
 			for name, basis in bases.items():
 				self.add_basis(name, basis)
-		
+
 		# Initialise named states
 		states = self.init_states()
 		if isinstance(states, dict):
 			for name, state in states.items():
 				self.add_state(name, state)
-		
+
 		# Initialise derivative operators
 		derivatives = self.init_derivative_ops()
 		if isinstance(derivatives, dict):
 			for name, derivative in derivatives.items():
 				self.add_derivative_op(name, derivative)
-		
+
 		# Initialise measurements
 		self.measure = Measurements(self)
 		measurements = self.init_measurements()
@@ -136,28 +136,28 @@ class QuantumSystem(object):
 	def init_parameters(self):
 		'''
 		This method can be used by subclasses to add any additional
-		parameters required to describe the quantum system. If this 
+		parameters required to describe the quantum system. If this
 		method returns a dictionary, then it is used to update the
 		parameters stored in the `Parameters` instance. This would
 		be equivalent to:
-		
+
 		>>> system.p << system.init_parameters()
-		
-		Parameters may, of course, be set directly by this method, using 
+
+		Parameters may, of course, be set directly by this method, using
 		(for example):
-		
+
 		>>> self.p.x = 1
 		'''
 		pass
-	
+
 	def init_hamiltonian(self):
 		'''
 		This method can be used by subclasses to initialise the Hamiltonian
 		to be used to describe the Quantum System. The Hamiltonian can
 		either be set directly in this method, using:
-		
+
 		>>> self.hamiltonian = <Operator or OperatorSet>
-		
+
 		Alternatively, if this method returns an Operator or OperatorSet
 		object, then it will be set as the Hamiltonian for this QuantumSystem
 		instance.
@@ -168,7 +168,7 @@ class QuantumSystem(object):
 		'''
 		This method can be used by subclasses to initialise the bases to be
 		used by this instance of `QuantumSystem`. Bases can be added directly
-		using the `add_basis` method; or, if this method returns a dictionary 
+		using the `add_basis` method; or, if this method returns a dictionary
 		of `Basis` objects (indexed by string names), then they will be added
 		as bases of this system.
 		'''
@@ -177,10 +177,10 @@ class QuantumSystem(object):
 	def init_states(self):
 		'''
 		This method can be used by subclasses to initialise named states, ensembles,
-		and subspaces. This can be done directly, using the corresponding 
+		and subspaces. This can be done directly, using the corresponding
 		`add_state` and `add_subspace` methods. If a dictionary is returned, then
 		it is assumed to be a dictionary of states indexed by names, which are then
-		added to the system using `add_state`. Note that this assumes that the 
+		added to the system using `add_state`. Note that this assumes that the
 		states are represented in the standard basis of this `QuantumSystem` object.
 		'''
 		pass
@@ -188,13 +188,13 @@ class QuantumSystem(object):
 	def init_measurements(self):
 		'''
 		This method can be used by subclasses to initialise the measurements that
-		will be used with this `QuantumSystem` instance. This can be done directly, 
+		will be used with this `QuantumSystem` instance. This can be done directly,
 		using `add_measurement`; or, if this method returns a dictionary of `Measurement`
 		objects indexed by string names, then they will be added as potential measurements
 		of this quantum system.
 		'''
 		pass
-	
+
 	def init_derivative_ops(self):
 		'''
 		This method can be used by subclasses to initialise the `StateOperator` objects
@@ -204,13 +204,13 @@ class QuantumSystem(object):
 		indexed with string names, then they are added as derivative operators of this object.
 		If the operators depend on the hamiltonian or other properties of the quantum system,
 		then the operators should be implemented in `get_derivative_ops` instead.
-		
+
 		This method should also initialise the default_derivative_ops property.
 		'''
 		pass
-	
+
 	# Other overridable methods
-	
+
 	def get_derivative_ops(self, components=None):
 		'''
 		This method can be used by subclasses to specify the `StateOperator` objects
@@ -219,14 +219,14 @@ class QuantumSystem(object):
 		the operators described in `init_derivative_ops` and the 'evolution' operator
 		describing Schroedinger evolution. Any properties of this
 		`QuantumSystem` instance should not change before integration.
-		
+
 		:param components: The components activated in the Hamiltonian for this integration.
 		:type components: iterable
 		'''
 		pass
-	
+
 	# Post construction interrogation and configuration
-	
+
 	@property
 	def p(self):
 		'''
@@ -240,15 +240,15 @@ class QuantumSystem(object):
 		if parameters is not None and not isinstance(parameters, Parameters):
 			raise ValueError("Parameters reference must be an instance of Parameters or None.")
 		self.__p = parameters
-	
+
 	@property
 	def hamiltonian(self):
 		'''
 		The `Operator` or `OperatorSet` object used to describe this quantum system.
 		If not yet specified, this will be `None`. The Hamiltonian can be specified using:
-		
+
 		>>> system.hamiltonian = <Operator or OperatorSet>
-		
+
 		.. note:: The Hamiltonian is expected to be represented such that the basis
 				vectors form the standard basis. This is, in practice, not a limitation; but
 				is important to remember when transforming bases.
@@ -264,7 +264,7 @@ class QuantumSystem(object):
 		self.__H = hamiltonian
 		if hasattr(self, '__dim'):
 			del self.__dim
-	
+
 	def H(self, *components):
 		'''
 		This method returns an `Operator` instance representing the Hamiltonian of the
@@ -272,7 +272,7 @@ class QuantumSystem(object):
 		otherwise the Operator object returns its default set. Note that if the
 		Hamiltonian object is simply an Operator, the Operator is simply returned
 		as is.
-		
+
 		:param components: Sequence of component names.
 		:type components: tuple
 		'''
@@ -282,7 +282,7 @@ class QuantumSystem(object):
 			return self.__H
 		else:
 			return self.__H(*components)
-	
+
 	@property
 	def dim(self):
 		'''
@@ -293,7 +293,7 @@ class QuantumSystem(object):
 		except:
 			self.__dim = self.H().shape[0]
 			return self.__dim
-	
+
 	@property
 	def bases(self):
 		'''
@@ -306,7 +306,7 @@ class QuantumSystem(object):
 		This method returns the `Basis` object associated with the provided name. If `basis` is
 		a `Basis` object, then it is simply returned; and if `basis` is None, a `StandardBasis` is
 		returned (or if a StandardBasis instance has been added to this instance, then it is returned instead).
-		
+
 		:param basis: A name of a basis, a `Basis` instance, or None.
 		'''
 		if isinstance(basis, Basis):
@@ -330,7 +330,7 @@ class QuantumSystem(object):
 		'''
 		This method is used to add a basis. The first `StandardBasis` instance
 		to be added will become the default basis used to describe this `QuantumSystem`.
-		
+
 		:param name: The name used to reference this basis in the future.
 		:type name: str
 		:param basis: A `Basis` instance to be associated with the above name.
@@ -342,10 +342,10 @@ class QuantumSystem(object):
 		if self.__basis_default is None and isinstance(basis, StandardBasis):
 			self.__basis_default = name
 		self.__named_bases[name] = basis
-		
+
 		if self.__dim is None:
 			self.__dim = basis.dim
-	
+
 	@property
 	def states(self):
 		'''
@@ -358,7 +358,7 @@ class QuantumSystem(object):
 		This method returns a state vector (numpy array) that is associated with the input `state`.
 		As well as retrieving named states from storage, this method also allows basis conversions of
 		the state. Note that states can be 1D or 2D (states or ensembles).
-		
+
 		:param state: The input state. If this is a string, this should refer to a named state as in `states`.
 		:type state: str or Operator or sequence convertible to numpy array
 		:param input: The basis of the input states.
@@ -393,14 +393,14 @@ class QuantumSystem(object):
 				return self.basis(input).transform(state, inverse=True, threshold=threshold, params=params)
 			else:
 				return self.basis(output).transform_from(state, basis=self.basis(input), threshold=threshold, params=params)
-	
+
 	def add_state(self, name, state, basis=None, params={}):
 		'''
-		This method allows a string name to be associated with a state. This name can then 
+		This method allows a string name to be associated with a state. This name can then
 		be used in `QuantumSystem.state` to retrieve the state. States are assumed to be in
 		the basis specified, and are transformed as necessary to be in the standard basis of this
 		`QuantumSystem` instance.
-		
+
 		:param name: String name to be associated with this state.
 		:type name: str
 		:param state: State or ensemble to be recorded.
@@ -422,23 +422,23 @@ class QuantumSystem(object):
 			if isinstance(state, np.ndarray):
 				state /= np.linalg.norm(state)
 			self.__named_states[name] = self.basis(basis).transform(state, params=params, inverse=True) if basis is not None else state
-	
+
 	def state_projector(self, state, **kwargs):
 		'''
 		This method returns a projector onto the state provided. This method is equivalent to:
-		
+
 		>>> system.subspace_projector([state], **kwargs)
-		
+
 		Refer to `subspace_projector` for more information.
 		'''
 		return self.subspace_projector([state], **kwargs)
-	
+
 	def state_fromString(self, state, input=None, output=None, threshold=False, params={}):
 		'''
 		This method creates a state object from a string representation, as interpreted by
 		the `Basis.state_fromString` method. Otherwise, this method acts as the `QuantumSystem.state`
 		method.
-		
+
 		:param state: The string representation of the state.
 		:type state: str
 		:param input: The basis to use to interpret the string.
@@ -456,7 +456,7 @@ class QuantumSystem(object):
 		'''
 		This method create a string representation of a state object, using `Basis.state_toString`. Otherwise,
 		this method acts like `QuantumSystem.state`.
-		
+
 		:param state: The input state. If this is a string, this should refer to a named state as in `states`.
 		:type state: str or Operator or sequence convertible to numpy array
 		:param input: The basis of the input states.
@@ -468,13 +468,13 @@ class QuantumSystem(object):
 		:type threshold: bool or float
 		:param params: Parameter overrides to use during evaluation and basis transformation.
 		:type params: dict
-		
+
 		Converts a state object to its string representation, as interpreted by the
 		Basis.state_toString method. As with QuantumSystem.state, basis conversions can also be
 		done.
 		'''
 		return self.basis(output).state_toString(self.state(state, input=input, output=output, threshold=threshold, params=params, evaluate=True), params)
-	
+
 	@property
 	def ensembles(self):
 		'''
@@ -488,7 +488,7 @@ class QuantumSystem(object):
 		This method returns a ensemble 2D vector (numpy array) that is associated with the input `state`.
 		If the state associated with `state` is not an ensemble, then the outer product is taken and returned.
 		Just like `QuantumSystem.state`, this method allows basis conversion of states.
-		
+
 		:param state: The input state. If this is a string, this should refer to a named state as in `states` or `ensembles`.
 		:type state: str or Operator or sequence convertible to numpy array
 		:param input: The basis of the input states.
@@ -514,21 +514,21 @@ class QuantumSystem(object):
 		if len(state.shape) == 1:
 			return np.outer(np.array(state).conjugate(), state)
 		return state
-	
+
 	@property
 	def subspaces(self):
 		'''
-		A sorted list of named subspaces. The subspaces can be extracted using the `QuantumSystem.subspace` 
+		A sorted list of named subspaces. The subspaces can be extracted using the `QuantumSystem.subspace`
 		method.
 		'''
 		return sorted(self.__named_subspaces.keys())
 
 	def subspace(self, subspace, input=None, output=None, threshold=False, evaluate=True, params={}):
 		'''
-		This method returns the subspace associated with the input `subspace`. A subspace is a list of 
-		states (but *not* ensembles). The subspace is the span of the states. Otherwise, this method 
+		This method returns the subspace associated with the input `subspace`. A subspace is a list of
+		states (but *not* ensembles). The subspace is the span of the states. Otherwise, this method
 		acts like `QuantumSystem.state`.
-		
+
 		:param subspace: The input subspace. If this is a string, this should refer to a named state as in `states`.
 		:type subspace: str or list of str, Operators or sequences convertible to numpy array
 		:param input: The basis of the input states.
@@ -551,12 +551,12 @@ class QuantumSystem(object):
 			for state in subspace:
 				states.append(self.state(state, input=input, output=output, threshold=threshold, params=params, evaluate=evaluate))
 		return states
-	
+
 	def add_subspace(self, name, subspace, basis=None, params={}):
 		'''
 		This method adds a new association between a string and a sequence of states (which
 		can be in turn be the names of named states).
-		
+
 		:param name: The name to associate with this subspace.
 		:type name: str
 		:param subspace: The input subspace to be stored.
@@ -571,12 +571,12 @@ class QuantumSystem(object):
 		for state in subspace:
 			fstates.append(self.state(state, input=basis, params=params, evaluate=False))
 		self.__named_subspaces[name] = fstates
-	
+
 	def subspace_projector(self, subspace, input=None, output=None, invert=False, threshold=False, evaluate=True, params={}):
 		'''
-		This method returns a projector onto the provided subspace (which can be the name of a named subspace, or a list of 
+		This method returns a projector onto the provided subspace (which can be the name of a named subspace, or a list of
 		named states. If `invert` is `True`, then the projector returned is onto the subspace orthogonal to the provided one.
-		
+
 		:param subspace: The input subspace. If this is a string, this should refer to a named state as in `states`.
 		:type subspace: str or list of str, Operators or sequences convertible to numpy array
 		:param input: The basis of the provided subspace.
@@ -610,15 +610,15 @@ class QuantumSystem(object):
 			P = np.identity(len(states[0])) - P
 
 		return P
-	
+
 	def derivative_ops(self, ops=None, components=None):
 		'''
 		This method returns a dictionary of named `StateOperator` objects, which are used
 		to calculate the instantaneous time derivative by `QuantumSystem.integrate` and
 		related methods. This method picks upon the operators created by `init_derivative_ops`
-		and `get_derivative_ops`, as well as the default 'evolution' operator which describes 
+		and `get_derivative_ops`, as well as the default 'evolution' operator which describes
 		evolution under the Schroedinger equation.
-		
+
 		:param ops: A sequence of operators to include in the returned dictionary.
 		:type ops: iterable of strings
 		:param components: A sequence of component names to enable in the `OperatorSet`
@@ -635,12 +635,12 @@ class QuantumSystem(object):
 			if key not in o:
 				raise ValueError("Unknown operator: %s" % key)
 		return o
-	
+
 	def add_derivative_op(self, name, state_op):
 		'''
 		This method adds an association between a string `name` and a `StateOperator` object,
 		for use as a derivative operator.
-		
+
 		:param name: The name to be used to refer to the provided `StateOperator`.
 		:type name: str
 		:param state_op: The `StateOperator` to be stored.
@@ -650,7 +650,7 @@ class QuantumSystem(object):
 			raise ValueError("Supplied operator must be an instance of StateOperator.")
 		state_op.p = self.p
 		self.__derivative_ops[name] = state_op
-	
+
 	def __get_derivative_ops(self, components=None):
 		ops = {}
 		if components is None:
@@ -666,20 +666,20 @@ class QuantumSystem(object):
 					op.p = self.p
 					ops[name] = op
 		return ops
-	
+
 	@property
 	def default_derivative_ops(self):
 		'''
-		The list (or sequence) of names corresponding to the derivative operators that will be used by default 
+		The list (or sequence) of names corresponding to the derivative operators that will be used by default
 		(if no operator names are otherwise supplied).
 		'''
 		return self.__derivative_ops_default
 	@default_derivative_ops.setter
 	def default_derivative_ops(self, default):
 		self.__derivative_ops_default = default
-	
-	
-	
+
+
+
 	@property
 	def measurements(self):
 		'''
@@ -690,10 +690,10 @@ class QuantumSystem(object):
 	def add_measurement(self, name, measurement):
 		'''
 		This method add a `Measurement` instance to the `Measurements` container associated with this
-		Quantum System object. It can then be called using: 
-		
+		Quantum System object. It can then be called using:
+
 		>>> system.measure.<name>
-		
+
 		See `Measurements` for more information.
 		'''
 		self.measure._add(name, measurement)
@@ -706,9 +706,9 @@ class QuantumSystem(object):
 		'''
 		This method is a shorthand way of creating an `Operator` instance that shares
 		the same `Parameters` instance as this `QuantumSystem`. This is shorthand for:
-		
+
 		>>> Operator(components, parameters=self.p, basis=self.basis(basis) if basis is not None else None, exact=exact)
-		
+
 		For more documentation, refer to `Operator`.
 		'''
 		return Operator(components, parameters=self.p, basis=self.basis(basis) if basis is not None else None, exact=exact)
@@ -718,13 +718,13 @@ class QuantumSystem(object):
 		This method is a shorthand way of creating an `OperatorSet` instance. This method first
 		checks through the values of `operatorMap` and converts anything that is not an `Operator`
 		to an `Operator` using:
-		
+
 		>>> system.Operator(operatorMap[key])
-		
+
 		Then, it creates an OperatorSet instance:
-		
+
 		>>> OperatorSet(operatorMap, defaults=defaults)
-		
+
 		For more documentation, see `Operator` and `OperatorSet`.
 		'''
 		for key in operatorMap.keys():
@@ -757,32 +757,32 @@ class QuantumSystem(object):
 		print "\tDerivative Operators: %s" % self.derivative_ops().keys()
 
 	############# INTEGRATION CODE #########################################
-	
+
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
 	def integrate(self, times, psi_0s, **kwargs):
 		'''
 		This method constructs an `Integrator` instance with initial states defined as `psi_0s` using
 		`get_integrator`, and then calls `start` on that instance with times specified as `times`.
-		
+
 		:param times: The times for which to return the instantaneous state. All values are
 			passed through the `Parameters` instance, allowing for times to be expressions
 			of parameters.
 		:type times: iterable of floats or str
 		:param psi_0s: A sequence of initial states (or ensembles).
 		:type psi_0s: list or tuple of numpy arrays
-		
+
 		This method is equivalent to:
 		>>> system.get_integrator(initial=psi_0s, **kwargs).start(times)
-		
+
 		For more documentation, see `get_integrator` and `Integrator.start`.
 		'''
 		return self.get_integrator(initial=psi_0s, **kwargs).start(times)
-	
-	def get_integrator(self, initial=None, input=None, output=None, threshold=False, components=None, operators=None, time_ops={}, params={}, integrator='RealIntegrator', kwargs={}):
+
+	def get_integrator(self, initial=None, input=None, output=None, threshold=False, components=None, operators=None, time_ops={}, params={}, integrator='RealIntegrator', **kwargs):
 		'''
-		This method is shorthand for manually creating an `Integrator` instance. It converts all operators and states 
+		This method is shorthand for manually creating an `Integrator` instance. It converts all operators and states
 		into a consistent basis and form for use in the integrator.
-		
+
 		:param initial: A sequence of initial states to use (including string names of known states and ensembles; see `QuantumSystem.state`).
 		:type initial: iterable
 		:param input: Basis of input states (including string name of stored Basis; see `QuantumSystem.basis`).
@@ -793,14 +793,14 @@ class QuantumSystem(object):
 		:type threshold: bool or float
 		:param components: A sequence of component names to enable for this `Integrator` (see `QuantumSystem.H`).
 		:type components: iterable of str
-		:param operators: A sequence of operator names to use during integration (see `QuantumSystem.derivative_ops`). 
+		:param operators: A sequence of operator names to use during integration (see `QuantumSystem.derivative_ops`).
 			Additional operators can be added using `Integrator.add_operator` on the returned `Integrator` instance.
 		:type operators: iterable of str
 		:param time_ops: A dictionary of `StateOperator` instances indexed by times (see `Integrator.time_ops`).
 		:type time_ops: dict
 		:param params: Parameter overrides to use during basis transformations and integration.
 		:type params: dict
-		:param integrator: The integrator class to use as a Class; either as a string (in which case it is 
+		:param integrator: The integrator class to use as a Class; either as a string (in which case it is
 			imported from `qubricks.wall`) or as a Class to be instantiated.
 		:type integrator: str or classobj
 		:param kwargs: Additional keyword arguments to pass to `Integrator` constructor.
@@ -823,7 +823,7 @@ class QuantumSystem(object):
 				y_0s.append(self.ensemble(psi0, input=input, output=output, threshold=threshold))
 			else:
 				y_0s.append(self.state(psi0, input=input, output=output, threshold=threshold))
-		
+
 		if type(integrator) is types.ClassType:
 			IntegratorClass = integrator
 		elif type(integrator) is str:
@@ -833,9 +833,9 @@ class QuantumSystem(object):
 				raise ValueError("Could not find integrator class named '%s' in `qubricks.wall`." % integrator)
 		else:
 			raise ValueError("QuantumSystem does not know how to convert '%s' of type '%s' to an Integrator instance." % (integrator,type(integrator)))
-		
+
 		return IntegratorClass(parameters=self.p, initial=y_0s, operators=ops, params=params, time_ops=time_ops, **kwargs)
-	
+
 	def __integrator_operators(self, components=None, operators=None, basis=None, threshold=False):
 		'''
 		An internal method that generates the operators to be used by the integrator. In this method
@@ -858,20 +858,20 @@ class QuantumSystem(object):
 			ops.append(op)
 
 		return ops
-	
+
 	def use_ensemble(self, ops=None, ensemble=False):
 		'''
-		This method is used to check whether integration should proceed using 
+		This method is used to check whether integration should proceed using
 		ensembles or state vectors. It first checks which kind of evolution is
 		supported by all of the `StateOperators`, as heralded by the `StateOperator.for_state`
 		and `StateOperator.for_ensemble` methods. It then checks that there is a match
 		between the type of state being used and the type of states supported
-		by the operators. Note that if `ensemble` is `False`, indicating that the 
-		state is a ordinary state vector, then it is assumed that if this method returns 
+		by the operators. Note that if `ensemble` is `False`, indicating that the
+		state is a ordinary state vector, then it is assumed that if this method returns
 		`True`, indicating ensemble evolution is to be used, that the states will be
 		converted using the outer-product with themselves to ensembles. Note that this
 		is already done by `get_integrator`.
-		
+
 		:param ops: A sequence of Operator objects or names of Operators. The list can be mixed.
 		:type ops: iterable
 		:param ensemble: `True` one or more of the input states are to be ensembles. `False` otherwise.
@@ -889,7 +889,7 @@ class QuantumSystem(object):
 		for operator in ops:
 			op_state = op_state and operator.for_state
 			op_ensemble = op_ensemble and operator.for_ensemble
-		
+
 		if not ensemble:
 			if op_state:
 				return False
@@ -898,10 +898,10 @@ class QuantumSystem(object):
 		else:
 			if op_ensemble:
 				return True
-		
+
 		raise RuntimeError("The StateOperators specified for use do not collectively support the type of state required for time evolution.")
 
-		
+
 
 # Cheekily import some classes from wall
 from .measurement import Measurements
