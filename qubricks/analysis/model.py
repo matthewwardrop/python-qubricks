@@ -1,7 +1,9 @@
-
 from abc import ABCMeta, abstractmethod
-from qubricks.utility.text import colour_text as coloured
 import sys
+import traceback
+
+from ..utility.text import colour_text as coloured
+
 
 def _model_wrapper(dependency=None, message=None, complete=None):
 	
@@ -71,6 +73,7 @@ def _model_wrapper(dependency=None, message=None, complete=None):
 					private_set(self, '__%s'%fname, f(self, *private(self,'__%s_args'%dependency,[]), **private(self,'__%s_kwargs'%dependency,{})) )
 				except Exception, e:
 					print coloured("Error", "RED", True)
+					traceback.print_exc()
 					raise e
 				
 				if complete is not None:
