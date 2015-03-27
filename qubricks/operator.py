@@ -490,10 +490,10 @@ class Operator(object):
 		else:
 			return other.change_basis(self.basis)
 
-	def __zero(self, shape=None):
-		if shape is None:
-			shape = self.shape
-		return sympy.zeros(*shape) if self.exact else np.zeros(shape)
+	def __zero(self, shape=None, exact=None):
+		exact = exact if exact is not None else self.exact
+		shape = shape if shape is not None else self.shape
+		return sympy.zeros(*shape) if exact else np.zeros(shape)
 
 	def __add__(self, other):
 		O = self._copy()
@@ -522,19 +522,22 @@ class Operator(object):
 		if isinstance(other, Operator):
 			for pam, component in self.components.items():
 				for pam_other, component_other in self.__get_other_operator(other).components.items():
-					mpam = pam if pam_other is None else (pam_other if pam is None else '*'.join((pam, pam_other)))
-					mpam = str(sympy.S(mpam)) if mpam is not None else None
+					pam = pam if pam is not None else 1
+					pam_other = pam_other if pam_other is not None else 1
+					mpam = str(sympy.S(pam)*sympy.S(pam_other))
 					r = self.__dot(component, component_other)
 					if shape is None:
 						shape = r.shape
-					if mpam not in components:
-						if type(r) != np.ndarray or self.exact or other.exact:
-							components[mpam] = sympy.zeros(*shape)
-					components[mpam] = components.get(mpam, self.__zero(shape)) + r
+					components[mpam] = components.get(mpam, self.__zero(shape=shape, exact=self.exact or other.exact)) + r
 		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
 			for pam, component in self.components.items():  # TODO: convert symbolic matrix to Operator and do normal multiplication
 				components[pam] = self.__dot(component, other)
-
+		elif isinstance(other, (str, sympy.expr.Expr)):
+			for pam, component in self.component.items():
+				components[str(sympy.S(other)*sympy.S(pam))] = component
+		elif isinstance(other, (int, float, complex, long)):
+			for pam, component in self.component.items():
+				components[pam] = other*component
 		else:
 			raise ValueError("Operator cannot be multiplied by type: %s" % type(other))
 		return self._new(components)
@@ -545,9 +548,19 @@ class Operator(object):
 			for pam, component in self.components.items():
 				components[pam] = self.__dot(other, component)
 		else:
-			raise ValueError("Operator cannot be multiplied from left by type: %s" % type(other))
+			return other*self
 		return self._new(components)
-
+	
+	def __div__(self, other):
+		components = {}
+		if isinstance(other, (str, sympy.expr.Expr)):
+			for pam, component in self.component.items():
+				components[str(sympy.S(pam)/sympy.S(other))] = component
+		elif isinstance(other, (int, float, complex, long)):
+			for pam, component in self.component.items():
+				components[pam] = component/other
+		return self._new(components)
+		
 	def tensor(self, other):
 		'''
 		This method returns a new Operator object that is the component-wise tensor
