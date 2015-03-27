@@ -518,7 +518,8 @@ class Operator(object):
 
 	def __mul__(self, other):
 		components = {}
-		shape = None
+		if isinstance(other, (np.ndarray, sympy.MatrixBase)):
+			other = self._new(other)
 		if isinstance(other, Operator):
 			for pam, component in self.components.items():
 				for pam_other, component_other in self.__get_other_operator(other).components.items():
@@ -526,17 +527,14 @@ class Operator(object):
 					pam_other = pam_other if pam_other is not None else 1
 					mpam = str(sympy.S(pam)*sympy.S(pam_other))
 					r = self.__dot(component, component_other)
-					if shape is None:
-						shape = r.shape
-					components[mpam] = components.get(mpam, self.__zero(shape=shape, exact=self.exact or other.exact)) + r
-		elif isinstance(other, (np.ndarray, sympy.MatrixBase)):
-			for pam, component in self.components.items():  # TODO: convert symbolic matrix to Operator and do normal multiplication
-				components[pam] = self.__dot(component, other)
+					if mpam not in components:
+						components[mpam] = self.__zero(shape=r.shape, exact=self.exact or other.exact)
+					components[mpam] += r
 		elif isinstance(other, (str, sympy.expr.Expr)):
-			for pam, component in self.component.items():
+			for pam, component in self.components.items():
 				components[str(sympy.S(other)*sympy.S(pam))] = component
 		elif isinstance(other, (int, float, complex, long)):
-			for pam, component in self.component.items():
+			for pam, component in self.components.items():
 				components[pam] = other*component
 		else:
 			raise ValueError("Operator cannot be multiplied by type: %s" % type(other))
@@ -545,28 +543,39 @@ class Operator(object):
 	def __rmul__(self, other):
 		components = {}
 		if isinstance(other, (np.ndarray, sympy.MatrixBase)):
-			for pam, component in self.components.items():
-				components[pam] = self.__dot(other, component)
-		else:
+			other = self._new(other)
 			return other*self
+		else:
+			return self*other
 		return self._new(components)
-	
+
 	def __div__(self, other):
 		components = {}
 		if isinstance(other, (str, sympy.expr.Expr)):
-			for pam, component in self.component.items():
+			for pam, component in self.components.items():
 				components[str(sympy.S(pam)/sympy.S(other))] = component
 		elif isinstance(other, (int, float, complex, long)):
-			for pam, component in self.component.items():
+			for pam, component in self.components.items():
 				components[pam] = component/other
 		return self._new(components)
-		
-	def tensor(self, other):
-		'''
-		This method returns a new Operator object that is the component-wise tensor
-		(or Kronecker) product of this Operator with *other*.
 
-		:param other: Another Operator with which to perform the tensor product
+	# TODO: Implement tensor products
+	# def tensor(self, other):
+	# 	'''
+	# 	This method returns a new Operator object that is the component-wise tensor
+	# 	(or Kronecker) product of this Operator with *other*.
+	#
+	# 	:param other: Another Operator with which to perform the tensor product
+	# 	:type other: Operator
+	# 	'''
+	# 	NotImplementedError("Tensor product calculations have yet to be implemented.")
+
+	def block_diag(self, other):
+		'''
+		This method returns a new Operator object with the `other` Operator appended
+		as a diagonal block below this Operator.
+
+		:param other: Another Operator to add as a diagonal block.
 		:type other: Operator
 		'''
 		components = {}
@@ -578,7 +587,9 @@ class Operator(object):
 			components[pam] = spla.block_diag(self.__np(component), sp.zeros(other.shape))
 
 		for pam, component in self.__get_other_operator(other).components.items():
-			components[pam] = components.get(pam, self.__zero(self.shape + component.shape)) + spla.block_diag(sp.zeros(self.shape), self.__np(component))
+			if pam not in components:
+				components[pam] = self.__zero(np.array(self.shape) + np.array(component.shape))
+			components[pam] += spla.block_diag(sp.zeros(self.shape), self.__np(component)) #TODO: Check how exact interplays with this
 
 		return self._new(components)
 
@@ -618,22 +629,28 @@ class Operator(object):
 				components[key] = np.zeros(self.shape, dtype='complex')
 			components[key] += contrib
 
-		for component, form in self.components.items():
-			if component is None:
-				add_comp(None, form)
+		for pam, component in self.components.items():
+			if pam is None:
+				add_comp(None, component)
 			else:
-				for (coeff, indet) in getLinearlyIndependentCoeffs(sympy.S(component)):
+				new_pam = 0
+				for (coeff, indet) in getLinearlyIndependentCoeffs(sympy.S(pam)):
 					if len(wrt) > 0 and self.p.is_constant(str(indet), *wrt, **params):
-						add_comp(None, coeff * self.p(indet, **params) * form)
+						add_comp(None, coeff * self.p(indet, **params) * component)
 					else:
-						subs = {}
+						subs = params.copy()
 						if len(wrt) > 0:
 							for s in indet.free_symbols:
 								if self.p.is_constant(str(s), *wrt, **params):
 									subs[s] = self.p(str(s), **params)
 
 						coeff2, indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
-						add_comp(str(indet2), coeff * coeff2 * form)
+						if isinstance(indet2,sympy.Number):
+							add_comp(None, coeff*coeff2*component)
+						else:
+							new_pam += coeff*coeff2*indet2
+						
+				add_comp(str(new_pam.simplify()), component)
 
 		return self._new(components)
 
@@ -700,9 +717,9 @@ class OperatorSet(object):
 		>>> ops() # Same as above, since no defaults provided.
 
 		Individual components can also be accessed using: :code:`operatorset['name']`.
-	
+
 	Subclassing OperatorSet:
-		To subclass `OperatorSet` simply override the `init` method to construct whichever 
+		To subclass `OperatorSet` simply override the `init` method to construct whichever
 		`Operators` you desire. You should initialise `OperatorSet.components` to be a dictionary;
 		but otherwise, there are no constraints. Note that you can add elements to an OperatorSet
 		without subclassing it.
@@ -714,15 +731,15 @@ class OperatorSet(object):
 		if self.components is None:
 			self.components = {}
 		self.init(**kwargs)
-	
+
 	def init(self):
 		'''
-		Subclasses may use this hook to initialise themselves. It is called after 
+		Subclasses may use this hook to initialise themselves. It is called after
 		`OperatorSet.components` and `OperatorSet.defaults` are set to their
 		passed values, with `Operator.components` guaranteed to be a dictionary.
 		'''
 		pass
-	
+
 	def __call__(self, *components):
 		'''
 		Calling the OperatorSet object returns an Operator object which is the sum of
