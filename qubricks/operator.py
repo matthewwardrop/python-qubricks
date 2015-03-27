@@ -736,9 +736,7 @@ class OperatorSet(object):
 		if len(components) == 0:
 			raise ValueError("Attempted to construct an empty Operator.")
 		for component in components:
-			if component not in self.components:
-				raise ValueError("Invalid operator component: '%s'" % component)
-			cs.append(self.components[component])
+			cs.append(self[component])
 		return self.__sum(cs)
 
 	def apply(self, state, symbolic=False, left=True, params=None, components=None):
