@@ -121,7 +121,7 @@ class Operator(object):
 
 		self.basis = basis
 
-		self.__process_components(components)
+		self.__add_components(components)
 
 	@property
 	def exact(self):
@@ -131,64 +131,68 @@ class Operator(object):
 	def exact(self, value):
 		self.__exact = value
 
+	def __add_components(self, components):
+		'''
+		Import the specified components, verifying that each component has the same shape.
+		'''
+		if type(components) == dict:
+			for pam, component in components.items():
+				self.__add_component(pam, component)
+		else:
+			self.__add_component(None, components)
+
 	def __add_component(self, pam, component):  # Assume components of type numpy.ndarray or sympy.Matrix
-		if not isinstance(component, (np.ndarray, sympy.MatrixBase)):
-			component = np.array(component) if not self.exact else sympy.Matrix(component)
+
+		if not isinstance(component, np.ndarray):
+			component = np.array(component)
+
+		if component.dtype == np.dtype(object):
+			try:
+				S = np.vectorize(lambda x: complex(x))
+				S(component)
+			except:
+				return self.__add_components(self.__extract_components(component, pam=pam))
+
+		if self.exact:
+			S = np.vectorize(lambda x: sympy.S(x))
+		else:
+			S = np.vectorize(lambda x: complex(x))
+		component = S(component)
+
 		if self.__shape is None:
-			self.__shape = np.array(component).shape
+			self.__shape = component.shape
 		elif component.shape != self.__shape:
-			raise ValueError("Invalid shape.")
+			raise ValueError("Different components of the same Operator object report different shape.")
+
 		if pam in self.components:
 			self.components[pam] += component
 		else:
 			self.components[pam] = component
 
-	def __process_components(self, components):
-		'''
-		Import the specified components, verifying that each component has the same shape.
-		'''
-		# TODO: Add support for second quantised forms
-		if type(components) == dict:
-			pass
-		elif isinstance(components, (sympy.MatrixBase, sympy.Expr)):
-			components = self.__symbolic_components(components)
-		elif isinstance(components, (list, np.ndarray)):
-			components = self.__array_components(components)
-		else:
-			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(components))
-
-		for pam, component in components.items():
-			self.__add_component(pam, component)
-
-	def __array_components(self, array):
-		# TODO: Check for symbolic nested components?
+	def __extract_components(self, array, pam=None):
 		components = {}
-		components[None] = np.array(array)
-		return components
-
-	def __symbolic_components(self, m):
-		components = {}
-		if isinstance(m, sympy.MatrixBase):
-			for i in xrange(m.shape[0]):
-				for j in xrange(m.shape[1]):
-					e = m[i, j]
-
-					if e.is_Number:
+		if isinstance(array, np.ndarray) and array.dtype == np.dtype(object):
+			# Check for symbolic nested components
+			it = np.nditer(array, flags=['multi_index', 'refs_ok'])
+			while not it.finished:
+				e = it[0][()]
+				if isinstance(e, sympy.Expr):
+					if e.is_number:
 						if None not in components:
-							components[None] = sympy.zeros(*m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
-						components[None][i, j] += e
+							components[None] = self.__zero(array.shape)
+						components[None][it.multi_index] += e
 					else:
 						for coefficient, symbol in getLinearlyIndependentCoeffs(e):
-							key = str(symbol)
-
+							if symbol is sympy.S.One:
+								key = None
+							else:
+								key = str(symbol)
 							if key not in components:
-								components[key] = sympy.zeros(*m.shape) if self.exact else np.zeros(m.shape, dtype=complex)
-
-							components[key][i, j] += coefficient
-		elif isinstance(m, sympy.Expr):
-			components[m] = np.array([1])
+								components[key] = self.__zero(array.shape)
+							components[key][it.multi_index] += coefficient
+				it.iternext()
 		else:
-			raise ValueError("Components of type `%s` could not be understand by qubricks.Operators." % type(m))
+			components[None] = np.array(array)
 		return components
 
 	def __call__(self, **params):
@@ -205,8 +209,9 @@ class Operator(object):
 
 	def symbolic(self, **params):
 		'''
-		This method returns a symbolic representation of the Operator object,
-		as documented in the general class documentation.
+		This method returns a symbolic representation of the Operator object as
+		a numpy array with a dtype of `object`, as documented in the general
+		class documentation.
 
 		:param params: A dictionary of parameter overrides.
 		:type params: dict
@@ -217,33 +222,60 @@ class Operator(object):
 		'''
 		return self.__assemble(symbolic=True, params=params)
 
-	def __assemble(self, symbolic=False, params=None):
+	def matrix(self, **params):
+		'''
+		This method returns a symbolic representation of the Operator object as
+		a sympy.Matrix object, as documented in the general class documentation.
+
+		:param params: A dictionary of parameter overrides.
+		:type params: dict
+
+		For example:
+
+		>>> op.matrix(x=2,y='sin(x)')
+		'''
+		return sympy.Matrix(self.__assemble(symbolic=True, params=params))
+
+	def __assemble(self, symbolic=False, params={}, apply_state=None, left=True):
 		'''
 		This utility function does the grunt work of compiling the various components into
 		the required form.
 		'''
+		R = None
+
+		S = None
+		if not symbolic and self.exact:
+			S = np.vectorize(lambda x: complex(x))
+		elif symbolic and not self.exact:
+			S = np.vectorize(lambda x: sympy.S)
+
 		if symbolic:
-			R = sympy.zeros(*self.shape)  # np.zeros(self.shape,dtype=object)
-			for pam, component in self.components.items():
-				if pam is None:
-					R += component
-				else:
-					R += sympy.S(pam) * component
-			return R.subs(params)
+			pam_eval = lambda pam: sympy.S(pam).subs(params)
 		else:
-			R = np.zeros(self.shape, dtype=complex)
-			for pam, component in self.components.items():
-				if pam is None:
-					R += self.__np(component)
-				else:
-					R += self.p(self.__optimise(pam), **params) * self.__np(component)
-			return R
+			pam_eval = lambda pam: self.p(self.__optimise(pam), **params)
+
+		apply_op = None
+		if apply_state is not None:
+			apply_op = lambda x: x.dot(self.__np(apply_state)) if left else self.__np(apply_state).dot(x)
+
+		for pam, component in self.components.items():
+			if S is not None:
+				component = S(component)
+			if apply_op is not None:
+				component = apply_op(component)
+			if R is None:
+				R = self.__zero(exact=symbolic, shape=component.shape)
+			if pam is None:
+				R += component
+			else:
+				R += pam_eval(pam) * component
+		return R
 
 	def apply(self, state, symbolic=False, left=True, params={}):
 		'''
 		This method returns the object resulting from multiplication by this Operator
 		without ever fully constructing the Operator; making it potentially a little
-		faster.
+		faster. When using `apply` on symbolic arrays, be sure to set `symbolic` to `True`.
 
 		:param state: An array with suitable dimensions for being pre- (or post-, if left is False) multipled by the Operator represented by this object.
 		:type state: numpy.array or object
@@ -261,16 +293,7 @@ class Operator(object):
 		array([  5.+0.j,  11.+0.j])
 		'''
 
-		if symbolic:
-			return self.__assemble(symbolic=symbolic, params=params) * state
-		else:
-			R = np.zeros(self.__np(state).shape, dtype=complex)
-			for pam, component in self.components.items():
-				if pam is None:
-					R += self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component))
-				else:
-					R += self.p(self.__optimise(pam), **params) * (self.__np(component).dot(self.__np(state)) if left else self.__np(state).dot(self.__np(component)))
-			return R
+		return self.__assemble(symbolic=symbolic, apply_state=state, left=left, params=params)
 
 	def __repr__(self):
 		return "<Operator with shape %s>" % (str(self.shape))
@@ -394,7 +417,6 @@ class Operator(object):
 		new = set(indices)
 
 		for key, component in self.components.items():
-			component = np.array(component)
 			if key is None or not (not self.exact and self.p.is_resolvable(key, **params) and self.p(key, **params) == 0):
 				for index in indices:
 					new.update(np.where(np.logical_or(component[:, index] != 0, component[index, :] != 0))[0].tolist())
@@ -426,10 +448,7 @@ class Operator(object):
 
 		for pam, component in self.components.items():
 
-			if type(component) != np.ndarray:
-				new = type(component)(np.zeros( (len(indices), len(indices)) ))
-			else:
-				new = np.zeros( (len(indices),len(indices)), dtype=component.dtype )
+			new = np.zeros( (len(indices),len(indices)), dtype=component.dtype )
 
 			# Do basis index sweeping to allow for duck-typing
 			for i, I in enumerate(indices):
@@ -438,26 +457,24 @@ class Operator(object):
 
 			components[pam] = new
 
-			#if type(component) != np.ndarray:
-			#	components[pam] = np.reshape(component[np.kron([1]*len(indices),indices),np.kron(indices,[1]*len(indices))],(len(indices),len(indices)))
-			#else:
-			#	components[pam] = component[tuple(indices),tuple(indices)]
-
 		return self._new(components)
 
 	############### Other utility methods #############################################
 
-	def __np(self, sympy_matrix):
+	def __np(self, array, exact=None):
 		'''
 		A utility function to convert any component to a numpy array.
 		'''
-		if type(sympy_matrix) == np.ndarray:
-			return sympy_matrix
-		if isinstance(sympy_matrix,sympy.MatrixBase):
-			return np.array(sympy_matrix.tolist(), dtype=complex)
-		if isinstance(sympy_matrix, (tuple,list)):
-			return np.array(sympy_matrix, dtype=complex)
-		raise ValueError("Unknown conversion from %s to numpy array." % type(sympy_matrix))
+		exact = exact if exact is not None else self.exact
+		dtype = object if exact else complex
+
+		if type(array) == np.ndarray:
+			return array.astype(dtype)
+		if isinstance(array, sympy.MatrixBase):
+			return np.array(array.tolist(), dtype=dtype)
+		if isinstance(array, (tuple, list)):
+			return np.array(array, dtype=dtype)
+		raise ValueError("Unknown conversion from %s to numpy array." % type(array))
 
 	def clean(self, threshold):
 		'''
@@ -470,7 +487,7 @@ class Operator(object):
 		:param type: float
 		'''
 		for key in self.components:
-			ind = np.where(np.abs(self.__np(self.components[key])) < threshold)
+			ind = np.where(np.abs(self.components[key]) < threshold)
 			for k in xrange(len(ind[0])):
 				self.components[key][(ind[0][k], ind[1][k])] = 0
 
@@ -493,7 +510,7 @@ class Operator(object):
 	def __zero(self, shape=None, exact=None):
 		exact = exact if exact is not None else self.exact
 		shape = shape if shape is not None else self.shape
-		return sympy.zeros(*shape) if exact else np.zeros(shape)
+		return np.zeros(shape, dtype=object) if exact else np.zeros(shape, dtype=complex)
 
 	def __add__(self, other):
 		O = self._copy()
@@ -649,7 +666,7 @@ class Operator(object):
 							add_comp(None, coeff*coeff2*component)
 						else:
 							new_pam += coeff*coeff2*indet2
-						
+
 				add_comp(str(new_pam.simplify()), component)
 
 		return self._new(components)
