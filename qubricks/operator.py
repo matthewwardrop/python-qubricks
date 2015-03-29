@@ -612,11 +612,15 @@ class Operator(object):
 
 	def inverse(self):
 		'''
-		This method computes and returns the inverse of the Operator object. This may be very slow. If you do not need a
+		This method computes and returns the pseudo-inverse of the Operator object. This may be very slow. If you do not need a
 		symbolic inversion, then simply numerically evaluate the Operator object and take a numerical inverse using
 		numpy.
+
+		.. note:: The pseudo-inverse will equal the normal inverse if it exists.
 		'''
-		return self._new(self.symbolic().pinv())
+		if len(self.shape) != 2:
+			raise ValueError("Cannot perform inverse on Operators with dimension other than 2.")
+		return self._new(self.matrix().pinv())
 
 	def collapse(self, *wrt, **params):
 		'''
