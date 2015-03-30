@@ -670,8 +670,8 @@ class Operator(object):
 							add_comp(None, coeff*coeff2*component)
 						else:
 							new_pam += coeff*coeff2*indet2
-
-				add_comp(str(new_pam.simplify()), component)
+				if new_pam != 0:
+					add_comp(str(new_pam.simplify()), component)
 
 		return self._new(components)
 

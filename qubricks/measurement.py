@@ -668,14 +668,15 @@ class MeasurementWrapper(object):
 				kwargs.pop('times')
 
 		if len(self.measurements) == 1:
-			if self.measurements.values()[0].is_independent:
-				return self.measurements.values()[0].measure(**kwargs)
+			measurement = self.measurements.values()[0]
+			if measurement.is_independent or 'data' not in inspect.getargspec(measurement.measure)[0]:
+				return measurement.measure(**kwargs)
 			else:
-				return self.measurements.values()[0].measure(data=data, **kwargs)
+				return measurement.measure(data=data, **kwargs)
 
 		res = {}
 		for name, measurement in self.measurements.items():
-			if measurement.is_independent or 'data' in inspect.getargspec(measurement.measure)[0]:
+			if measurement.is_independent or 'data' not in inspect.getargspec(measurement.measure)[0]:
 				res[name] = measurement.measure(**kwargs)
 			else:
 				res[name] = measurement.measure(data=data, **kwargs)
