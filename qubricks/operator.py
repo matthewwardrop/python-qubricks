@@ -107,9 +107,18 @@ class Operator(object):
 		-	Multiplication: :code:`op1*op2`
 		-	Scaling: :code:`k*op1`, with *k* a scalar constant.
 
+	Operator indexing:
+		Operator objects use `numpy.ndarray` objects to internally represent the
+		array; and thus inherits sophisticated indexing. You can index an `Operator`
+		object using any indexing method supported by numpy. For example:
+
+		>>> op[1:3,2] # Will return a new `Operator` object sliced with the 2nd and third rows, with the third column
+
 	The rest of the functionality of the Operator object is described in the
 	method documentation below.
 	'''
+
+	__array_priority__ = 1000  # Cause pre-multiplication by numpy array to call __rmul__ appropriately.
 
 	def __init__(self, components, parameters=None, basis=None, exact=False):
 		self.__p = parameters
@@ -247,7 +256,7 @@ class Operator(object):
 		if not symbolic and self.exact:
 			S = np.vectorize(lambda x: complex(x))
 		elif symbolic and not self.exact:
-			S = np.vectorize(lambda x: sympy.S)
+			S = np.vectorize(lambda x: sympy.S(x))
 
 		if symbolic:
 			pam_eval = lambda pam: sympy.S(pam).subs(params)
@@ -515,18 +524,25 @@ class Operator(object):
 	def __add__(self, other):
 		O = self._copy()
 		if not isinstance(other, Operator):
-			other = Operator(other)
+			other = self._new(other)
 		for pam, component in self.__get_other_operator(other).components.items():
 			O.components[pam] = O.components.get(pam, self.__zero()) + component
 		return O
 
+	def __radd__(self, other):
+		return self.__add__(other)
+
 	def __sub__(self, other):
 		O = self._copy()
 		if not isinstance(other, Operator):
-			other = Operator(other)
+			other = self._new(other)
 		for pam, component in self.__get_other_operator(other).components.items():
 			O.components[pam] = O.components.get(pam, self.__zero()) - component
 		return O
+
+	def __rsub__(self, other):
+		other = self._new(other)
+		return other - self
 
 	def __dot(self, one, two):
 		if type(one) == type(two) and type(one) == np.ndarray:
@@ -542,17 +558,17 @@ class Operator(object):
 				for pam_other, component_other in self.__get_other_operator(other).components.items():
 					pam = pam if pam is not None else 1
 					pam_other = pam_other if pam_other is not None else 1
-					mpam = str(sympy.S(pam)*sympy.S(pam_other))
+					mpam = str(sympy.S(pam) * sympy.S(pam_other))
 					r = self.__dot(component, component_other)
 					if mpam not in components:
 						components[mpam] = self.__zero(shape=r.shape, exact=self.exact or other.exact)
 					components[mpam] += r
 		elif isinstance(other, (str, sympy.expr.Expr)):
 			for pam, component in self.components.items():
-				components[str(sympy.S(other)*sympy.S(pam))] = component
+				components[str(sympy.S(other) * sympy.S(pam))] = component
 		elif isinstance(other, (int, float, complex, long)):
 			for pam, component in self.components.items():
-				components[pam] = other*component
+				components[pam] = other * component
 		else:
 			raise ValueError("Operator cannot be multiplied by type: %s" % type(other))
 		return self._new(components)
@@ -561,9 +577,9 @@ class Operator(object):
 		components = {}
 		if isinstance(other, (np.ndarray, sympy.MatrixBase)):
 			other = self._new(other)
-			return other*self
+			return other * self
 		else:
-			return self*other
+			return self * other
 		return self._new(components)
 
 	def __div__(self, other):
@@ -598,7 +614,7 @@ class Operator(object):
 		components = {}
 
 		if not isinstance(other, Operator):
-			other = Operator(other)
+			other = self._new(other)
 
 		for pam, component in self.components.items():
 			components[pam] = spla.block_diag(self.__np(component), sp.zeros(other.shape))
