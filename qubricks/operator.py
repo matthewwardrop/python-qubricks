@@ -456,15 +456,7 @@ class Operator(object):
 		components = {}
 
 		for pam, component in self.components.items():
-
-			new = np.zeros( (len(indices),len(indices)), dtype=component.dtype )
-
-			# Do basis index sweeping to allow for duck-typing
-			for i, I in enumerate(indices):
-				for j, J in enumerate(indices):
-					new[i, j] = component[I, J]
-
-			components[pam] = new
+			components[pam] = component[indices, indices]
 
 		return self._new(components)
 
@@ -617,12 +609,12 @@ class Operator(object):
 			other = self._new(other)
 
 		for pam, component in self.components.items():
-			components[pam] = spla.block_diag(self.__np(component), sp.zeros(other.shape))
+			components[pam] = spla.block_diag(component, self.__zero(other.shape))
 
 		for pam, component in self.__get_other_operator(other).components.items():
 			if pam not in components:
 				components[pam] = self.__zero(np.array(self.shape) + np.array(component.shape))
-			components[pam] += spla.block_diag(sp.zeros(self.shape), self.__np(component)) #TODO: Check how exact interplays with this
+			components[pam] += spla.block_diag(sp.zeros(self.shape), component)
 
 		return self._new(components)
 
@@ -663,7 +655,7 @@ class Operator(object):
 
 		def add_comp(key, contrib):
 			if key not in components:
-				components[key] = np.zeros(self.shape, dtype='complex')
+				components[key] = self.__zero()
 			components[key] += contrib
 
 		for pam, component in self.components.items():
