@@ -453,10 +453,12 @@ class Operator(object):
 		if len(self.shape) != 2 or self.shape[0] != self.shape[1]:
 			raise ValueError("Operator not square. Restriction only works when Operators are square.")
 
+		indices = np.array(indices)
+
 		components = {}
 
 		for pam, component in self.components.items():
-			components[pam] = component[indices, indices]
+			components[pam] = component[indices[:,None], indices]
 
 		return self._new(components)
 
