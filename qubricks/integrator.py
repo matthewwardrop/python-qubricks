@@ -75,8 +75,8 @@ class Integrator(object):
 		self.identifier = identifier
 		
 		# Set up initial conditions
-		self.initial = initial
 		self.t_offset = t_offset
+		self.initial = initial
 
 		# Parameter Object
 		self.p = parameters
@@ -130,7 +130,7 @@ class Integrator(object):
 		return self.__initial
 	@initial.setter
 	def initial(self, initial):
-		self.__initial = map(lambda state: np.array(state, dtype='complex'),initial)
+		self.__initial = map(lambda state: np.array(state if not isinstance(state,Operator) else state(t=self.t_offset), dtype='complex'),initial)
 	
 	@property
 	def t_offset(self):
@@ -522,8 +522,6 @@ class Integrator(object):
 		return presults
 
 	def __state_prepare(self, y_0):
-		if isinstance(y_0, Operator):
-			y_0 = y_0(t=0)  # ,**self.get_op_params()
 		nz = np.nonzero(y_0)
 		indices = set()
 		for n in nz:
@@ -631,7 +629,7 @@ class Integrator(object):
 						solution.extend(sol) if len(solution) == 0  else solution.extend(sol[1:])
 						y_0 = sol[-1][1]
 						required.extend(segment[1])
-					elif isinstance(segment, StateOperator):
+					elif isinstance(segment, StateOperator): #TODO: restrict time_ops separately, so they do not artificially increase dimension of integration
 						y_0, dim = self._state_internal2ode(
 														segment(
 															state=self._state_ode2internal(y_0, dim),
