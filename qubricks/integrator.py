@@ -628,7 +628,6 @@ class Integrator(object):
 					if not isinstance(segment[0], StateOperator):
 						y_0_dim = y_0.shape
 						y_0, indices = self.__state_prepare(y_0)
-						print indices
 						if set(indices) != state.indices:
 							state.indices = set(indices)
 							state.operators = self.get_operators(indices=indices)
