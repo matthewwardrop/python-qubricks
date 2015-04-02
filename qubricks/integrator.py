@@ -551,7 +551,7 @@ class Integrator(object):
 		if len(new.difference(indices)) != 0:
 			new.update(self.__get_connected(*new))
 
-		return list(new)
+		return sorted(new)
 
 	def __state_restore(self, y, indices, shape):
 		if len(shape) not in (1, 2):
@@ -625,9 +625,10 @@ class Integrator(object):
 				for i, segment in enumerate(sequence):
 					
 					# If sequence element is an integration stretch
-					if not isinstance(segment[0],StateOperator):
+					if not isinstance(segment[0], StateOperator):
 						y_0_dim = y_0.shape
 						y_0, indices = self.__state_prepare(y_0)
+						print indices
 						if set(indices) != state.indices:
 							state.indices = set(indices)
 							state.operators = self.get_operators(indices=indices)
