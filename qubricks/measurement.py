@@ -54,7 +54,7 @@ class Measurement(object):
 		Calling a Measurement instance is an alias for the Measurement.measure
 		method. If the measurement instance is configured to perform its own integration:
 
-		>>> measurement(times=..., psi_0s=..., ...)
+		>>> measurement(times=..., initial=..., ...)
 
 		Note that if the measurement instance needs access to the QuantumSystem
 		instance, you can setup the reference using:
@@ -100,7 +100,7 @@ class Measurement(object):
 		raise NotImplementedError("Measurement.init has not been implemented.")
 
 	@abstractmethod
-	def measure(self, data=None, times=None, psi_0s=None, params={}, **kwargs):
+	def measure(self, data=None, times=None, initial=None, params={}, **kwargs):
 		'''
 		This method should return the value of a measurement as a numpy array with
 		data type and shape as specified in `result_type` and `result_shape` respectively.
@@ -112,7 +112,7 @@ class Measurement(object):
 		Implementations of `measure` will typically be provided by integration data
 		by a `MeasurementWrapper` instance (which will be a structured numpy array
 		as returned by `Integrator.integrate) as the value for the `data` keyword.
-		A consistent set of values for `times` and `psi_0s` will also be passed.
+		A consistent set of values for `times` and `initial` will also be passed.
 
 		.. note:: If an implementation of `measure` omits the `data` keyword, QuBricks
 			assumes that all integration required by the `measure` operator will be
@@ -122,11 +122,11 @@ class Measurement(object):
 			override the `is_independent` method to return `True`. If external data
 			is *required*, then simply remove the default value of `data`.
 
-		Apart from the required keywords: `data`, `times`, `psi_0s` and `params`; any additional
+		Apart from the required keywords: `data`, `times`, `initial` and `params`; any additional
 		keywords can be specified. Refer to the documentation of `MeasurementWrapper` to
 		see how their values will filter through.
 
-		.. note:: Although the keywords `times` and `psi_0s` are necessary, it is not
+		.. note:: Although the keywords `times` and `initial` are necessary, it is not
 			necessary to use these keywords. As such, Measurement operators need not
 			require an integration of the physical system.
 
@@ -134,8 +134,8 @@ class Measurement(object):
 		:type data: numpy.ndarray or None
 		:param times: Sequence of times of interest.
 		:type times: iterable
-		:param psi_0s: The initial state vectors/ensembles with which to start integrating.
-		:type psi_0s: str or iterable
+		:param initial: The initial state vectors/ensembles with which to start integrating.
+		:type initial: str or iterable
 		:param params: Parameter context to use during this measurement. Parameter types can be anything supported by Parameters.
 		:type params: dict
 		:param kwargs: Any other keyword arguments not collected explicitly.
@@ -647,23 +647,23 @@ class MeasurementWrapper(object):
 		For example:
 		>>> wrapper.on(data, mykey=myvalue)
 
-		Note that if `data` is not `None`, then `psi_0s` and `times` are
+		Note that if `data` is not `None`, then `initial` and `times` are
 		extracted from `data`, and passed to `Measurement.measure` as well.
 
 		Also note that if a measurement has `Measurement.is_independent` being `True`,
-		only the `psi_0s` and `times` will be forwarded from `data`.
+		only the `initial` and `times` will be forwarded from `data`.
 		'''
 
-		psi_0s = kwargs.get('psi_0s')
+		initial = kwargs.get('initial')
 		times = kwargs.get('times')
 		if data is not None:
-			if psi_0s is None:
-				kwargs['psi_0s'] = data['state'][:, 0]
+			if initial is None:
+				kwargs['initial'] = data['state'][:, 0]
 			if times is None:
 				kwargs['times'] = data['time'][0, :]
 		else:
-			if 'psi_0s' in kwargs and psi_0s is None:
-				kwargs.pop('psi_0s')
+			if 'initial' in kwargs and initial is None:
+				kwargs.pop('initial')
 			if 'times' in kwargs and times is None:
 				kwargs.pop('times')
 
@@ -682,7 +682,7 @@ class MeasurementWrapper(object):
 				res[name] = measurement.measure(data=data, **kwargs)
 		return res
 
-	def integrate(self, times=None, psi_0s=None, params={}, **kwargs):
+	def integrate(self, times=None, initial=None, params={}, **kwargs):
 		'''
 		This method performs an integration of the `QuantumSystem` referenced when
 		this object was constructed, and then calls `Measurement.on` on that data.
@@ -691,8 +691,8 @@ class MeasurementWrapper(object):
 
 		:param times: Times for which to report the state during integration.
 		:type times: iterable
-		:param psi_0s: Initial state vectors / ensembles for the integration. (See `QuantumSystem.state`.
-		:type psi_0s: list
+		:param initial: Initial state vectors / ensembles for the integration. (See `QuantumSystem.state`.
+		:type initial: list
 		:param params: Parameter overrides to use during integration. (See `parameters.Parameters` documentation).
 		:type param: dict
 		:param kwargs: Additional keyword arguments to pass to `QuantumSystem.integrate` and `Measurement.measure`.
@@ -704,7 +704,7 @@ class MeasurementWrapper(object):
 
 		For example:
 
-		>>> wrapper.integrate(times=['T'], psi_0s=['logical0'])
+		>>> wrapper.integrate(times=['T'], initial=['logical0'])
 		'''
 		int_kwargs = {}
 		for kwarg in kwargs.keys():
@@ -714,9 +714,9 @@ class MeasurementWrapper(object):
 				int_kwargs[kwarg] = kwargs[kwarg]
 
 		if self.__integration_needed:
-			return self.on(self.system.integrate(times=times, psi_0s=psi_0s, params=params, **int_kwargs), params=params, **kwargs)
+			return self.on(self.system.integrate(times=times, initial=initial, params=params, **int_kwargs), params=params, **kwargs)
 		else:
-			return self.on(None, times=times, psi_0s=psi_0s, params=params, **kwargs)
+			return self.on(None, times=times, initial=initial, params=params, **kwargs)
 
 	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, yield_every=0, results=None, progress=True, **kwargs):
 		'''

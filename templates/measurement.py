@@ -14,7 +14,7 @@ class CustomMeasurement(Measurement):
 		'''
 		raise NotImplementedError("Measurement.init has not been implemented.")
 
-	def measure(self, data=None, times=None, psi_0s=None, params={}, **kwargs):
+	def measure(self, data=None, times=None, initial=None, params={}, **kwargs):
 		'''
 		This method should return the value of a measurement as a numpy array with
 		data type and shape as specified in `result_type` and `result_shape` respectively.
@@ -26,7 +26,7 @@ class CustomMeasurement(Measurement):
 		Implementations of `measure` will typically be provided by integration data
 		by a `MeasurementWrapper` instance (which will be a structured numpy array 
 		as returned by `Integrator.integrate) as the value for the `data` keyword.
-		A consistent set of values for `times` and `psi_0s` will also be passed.
+		A consistent set of values for `times` and `initial` will also be passed.
 		
 		.. note:: If an implementation of `measure` omits the `data` keyword, QuBricks
 			assumes that all integration required by the `measure` operator will be
@@ -36,11 +36,11 @@ class CustomMeasurement(Measurement):
 			override the `is_independent` method to return `True`. If external data
 			is *required*, then simply remove the default value of `data`.
 		
-		Apart from the required keywords: `data`, `times`, `psi_0s` and `params`; any additional
+		Apart from the required keywords: `data`, `times`, `initial` and `params`; any additional
 		keywords can be specified. Refer to the documentation of `MeasurementWrapper` to 
 		see how their values will filter through.
 		
-		.. note:: Although the keywords `times` and `psi_0s` are necessary, it is not 
+		.. note:: Although the keywords `times` and `initial` are necessary, it is not 
 			necessary to use these keywords. As such, Measurement operators need not
 			require an integration of the physical system.
 		
@@ -48,8 +48,8 @@ class CustomMeasurement(Measurement):
 		:type data: numpy.ndarray or None
 		:param times: Sequence of times of interest.
 		:type times: iterable
-		:param psi_0s: The initial state vectors/ensembles with which to start integrating.
-		:type psi_0s: str or iterable
+		:param initial: The initial state vectors/ensembles with which to start integrating.
+		:type initial: str or iterable
 		:param params: Parameter context to use during this measurement. Parameter types can be anything supported by Parameters.
 		:type params: dict
 		:param kwargs: Any other keyword arguments not collected explicitly.

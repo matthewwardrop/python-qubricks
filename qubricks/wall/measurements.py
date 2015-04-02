@@ -21,11 +21,11 @@ class AmplitudeMeasurement(Measurement):
                 ]
 
     def result_shape(self, *args, **kwargs):
-        return (len(kwargs['psi_0s']), len(kwargs.get('times', 0)))
+        return (len(kwargs['initial']), len(kwargs.get('times', 0)))
 
-    def measure(self, data, times, psi_0s, params={}, subspace=None, **kwargs):
+    def measure(self, data, times, initial, params={}, subspace=None, **kwargs):
 
-        rval = np.empty((len(data), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
 
         self.__P = None
         for i, resultset in enumerate(data):
@@ -58,11 +58,11 @@ class ExpectationMeasurement(Measurement):
                 ]
 
     def result_shape(self, *args, **kwargs):
-        return (len(kwargs['psi_0s']), len(kwargs.get('times', 0)))
+        return (len(kwargs['initial']), len(kwargs.get('times', 0)))
 
-    def measure(self, data, params={}, subspace=None, psi_0s=None, times=None, **kwargs):
+    def measure(self, data, params={}, subspace=None, initial=None, times=None, **kwargs):
 
-        rval = np.empty((len(data), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
 
         self.__P = None
         for i, resultset in enumerate(data):
@@ -97,15 +97,15 @@ class LeakageMeasurement(Measurement):
                 ]
 
     def result_shape(self, *args, **kwargs):
-        return (len(kwargs['psi_0s']), len(kwargs.get('times', 0)))
+        return (len(kwargs['initial']), len(kwargs.get('times', 0)))
 
     @property
     def result_units(self):
         return None
 
-    def measure(self, data, times, psi_0s, params={}, subspace=None, input=None, output=None, **kwargs):
+    def measure(self, data, times, initial, params={}, subspace=None, input=None, output=None, **kwargs):
 
-        rval = np.empty((len(data), len(times)), dtype=self.result_type(psi_0s=psi_0s, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
 
         self.__P = None
         for i, resultset in enumerate(data):

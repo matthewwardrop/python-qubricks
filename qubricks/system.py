@@ -759,24 +759,24 @@ class QuantumSystem(object):
 	############# INTEGRATION CODE #########################################
 
 	# Integrate hamiltonian forward to describe state at time t ( or times [t_i])
-	def integrate(self, times, psi_0s, **kwargs):
+	def integrate(self, times, initial, **kwargs):
 		'''
-		This method constructs an `Integrator` instance with initial states defined as `psi_0s` using
+		This method constructs an `Integrator` instance with initial states defined as `initial` using
 		`get_integrator`, and then calls `start` on that instance with times specified as `times`.
 
 		:param times: The times for which to return the instantaneous state. All values are
 			passed through the `Parameters` instance, allowing for times to be expressions
 			of parameters.
 		:type times: iterable of floats or str
-		:param psi_0s: A sequence of initial states (or ensembles).
-		:type psi_0s: list or tuple of numpy arrays
+		:param initial: A sequence of initial states (or ensembles).
+		:type initial: list or tuple of numpy arrays
 
 		This method is equivalent to:
-		>>> system.get_integrator(initial=psi_0s, **kwargs).start(times)
+		>>> system.get_integrator(initial=initial, **kwargs).start(times)
 
 		For more documentation, see `get_integrator` and `Integrator.start`.
 		'''
-		return self.get_integrator(initial=psi_0s, **kwargs).start(times)
+		return self.get_integrator(initial=initial, **kwargs).start(times)
 
 	def get_integrator(self, initial=None, input=None, output=None, threshold=False, components=None, operators=None, time_ops={}, params={}, integrator='RealIntegrator', **kwargs):
 		'''
