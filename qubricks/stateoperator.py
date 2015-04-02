@@ -173,6 +173,15 @@ class StateOperator(object):
 		Should be True if the StateOperator supports 2D ensemble operations; and False otherwise.
 		'''
 		raise NotImplementedError("StateOperator.process_args is not implemented.")
+	
+	@abstractproperty
+	def is_linear(self):
+		'''
+		Should be True if the StateOperator is linear. If so, the `Integrator` instance
+		may apply the real and imaginary components separately (or any other linear breakdown of the
+		state).
+		'''
+		raise NotImplementedError("StateOperator.process_args is not implemented.")
 
 	############### Basis Transformations ###########################################
 

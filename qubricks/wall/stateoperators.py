@@ -74,6 +74,10 @@ class SchrodingerStateOperator(StateOperator):
     @property
     def for_ensemble(self):
         return True
+    
+    @property
+    def is_linear(self):
+        return True
 
 
 class LindbladStateOperator(StateOperator):
@@ -105,7 +109,6 @@ class LindbladStateOperator(StateOperator):
 
     def restrict(self, *indices):
         return LindbladStateOperator(self.p, coefficient=self.coefficient, operator=self.operator.restrict(*indices))
-        # No basis reported since that does not make sense when restricted
 
     def connected(self, *indices, **params):
         return self.operator.connected(*indices, **params)
@@ -119,4 +122,8 @@ class LindbladStateOperator(StateOperator):
 
     @property
     def for_ensemble(self):
+        return True
+    
+    @property
+    def is_linear(self):
         return True

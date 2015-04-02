@@ -124,11 +124,13 @@ class Integrator(object):
 		The initial state. Ignored in `Integrator.extend`. Can be set using:
 		
 		>>> integrator.initial = <list of states>
+		
+		Each state will be converted to a complex numpy array if it is not already.
 		'''
 		return self.__initial
 	@initial.setter
 	def initial(self, initial):
-		self.__initial = initial
+		self.__initial = map(lambda state: np.array(state, dtype='complex'),initial)
 	
 	@property
 	def t_offset(self):
@@ -277,6 +279,10 @@ class Integrator(object):
 		'''
 		if not isinstance(operator, StateOperator):
 			raise ValueError("Operator must be an instance of State Operator.")
+		try:
+			del self.__operators_linear
+		except:
+			pass
 		self.__operators.append(operator)
 
 	def get_operators(self, indices=None):
@@ -298,6 +304,18 @@ class Integrator(object):
 		for operator in self.operators:
 			operators.append(operator.restrict(*indices).collapse('t'))  # ,**self.get_op_params()
 		return operators
+	
+	@property
+	def operators_linear(self):
+		'''
+		`True` if all provided operators are linear, and `False` otherwise.
+		Mainly used by `Integrator` subclasses to optimise their algorithms.
+		'''
+		try:
+			return self.__operators_linear
+		except:
+			self.__operators_linear = all(map(lambda x: x.is_linear, self.operators))
+			return self.__operators_linear
 	
 	@property
 	def params(self):
