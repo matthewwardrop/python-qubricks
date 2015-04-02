@@ -18,7 +18,7 @@ class RealIntegrator(Integrator):
     '''
 
     def _integrator(self, f, **kwargs):
-        from scipy.integrate import ode
+        from scipy.integrate import complex_ode
 
         defaults = {
             'nsteps': 1e9,
@@ -27,7 +27,7 @@ class RealIntegrator(Integrator):
         }
         defaults.update(kwargs)
 
-        r = ode(f).set_integrator('vode', atol=self.error_abs, rtol=self.error_rel, **defaults)
+        r = complex_ode(f).set_integrator('vode', atol=self.error_abs, rtol=self.error_rel, **defaults)
         return r
 
     def _integrate(self, T, y_0, times=None):
@@ -46,22 +46,15 @@ class RealIntegrator(Integrator):
 
     def _state_internal2ode(self, state):
         dim = state.shape
-        state = np.array(state).reshape((np.prod(dim),))
-        return np.array(list(np.real(state)) + list(np.imag(state))), dim
+        return state.reshape((np.prod(dim),)), dim
 
     def _state_ode2internal(self, state, dimensions):
-        state = np.array(state[:len(state) / 2]) + 1j * np.array(state[len(state) / 2:])
-        return np.reshape(state, dimensions)
+        return state.reshape(dimensions)
 
     def _derivative(self, t, y, dim, operators):
-        dy = np.zeros(dim, dtype='complex')
-        # Apply operators
-        y = self._state_ode2internal(y, dim)
-
-        for operator in operators:
-            dy += operator(state=y, t=t)  # ,params=self.get_op_params())
-
-        dy, dim = self._state_internal2ode(dy)
+        y = y.reshape(dim)
+        dy = sum(map(lambda op: op(state=y,t=t), operators))
+        dy.shape = (np.prod(dim),)
         return dy
 
 
@@ -77,7 +70,6 @@ class QuantumIntegrator(Integrator):
     '''
 
     def _state_internal2ode(self, state):
-        state = np.array(state)
         dim = state.shape
         return np.reshape(state, (np.prod(state.shape),)), dim
 
@@ -85,14 +77,8 @@ class QuantumIntegrator(Integrator):
         return np.reshape(state, dimensions)
 
     def _derivative(self, t, y, dim, operators):
-        y = y / np.linalg.norm(y)
-        dy = np.zeros(dim, dtype='complex')
-        # Apply operators
-        y.shape = dim
-
-        for operator in operators:
-            dy += operator(state=y, t=t)  # ,params=self.get_op_params())
-
+        y = y.reshape(dim)
+        dy = sum(map(lambda op: op(state=y,t=t), operators))
         dy.shape = (np.prod(dy.shape),)
         return dy
 
