@@ -37,6 +37,49 @@ class DummyStateOperator(StateOperator):
     def for_ensemble(self):
         return True
 
+class SimpleStateOperator(StateOperator):
+    '''
+    SimpleStateOperator wraps around an Operator object and when applied to a state,
+    it is equivalent to :math:`O\left|\Psi\right>` if state is a vector; or 
+    :math:`O \rho O^{\dagger}` if state is a matrix, were :math:`O` is the operator
+    and :math:`\dagger` represents the conjugate transpose operation.
+    '''
+    
+    def init(self, operator):
+        self.operator = self.Operator(operator)
+    
+    def __call__(self, state, t=0, params={}):
+        if len(state.shape) > 1:
+            op = self.operator(t=t, **params)
+            return op.dot(state).dot(op.conjugate().transpose())
+        pams = {'t':t}
+        pams.update(params)
+        return self.operator.apply(state, params=pams, left=True, symbolic=False)
+    
+    def transform(self, transform_op):
+        return SimpleStateOperator(self.p, operator=transform_op(self.operator))
+
+    def restrict(self, *indices):
+        return SimpleStateOperator(self.p, operator=self.operator.restrict(*indices))
+
+    def connected(self, *indices, **params):
+        return self.operator.connected(*indices, **params)
+
+    def collapse(self, *wrt, **params):
+        return SimpleStateOperator(self.p, operator=self.operator.collapse(*wrt, **params), basis=self.basis)
+
+    @property
+    def for_state(self):
+        return True
+
+    @property
+    def for_ensemble(self):
+        return True
+    
+    @property
+    def is_linear(self):
+        return True
+
 
 class SchrodingerStateOperator(StateOperator):
     '''
@@ -48,11 +91,11 @@ class SchrodingerStateOperator(StateOperator):
         self.H = self.Operator(H)
 
     def __call__(self, state, t=0, params={}):
-        pams = {'t':t}
-        pams.update(params)
         if len(state.shape) > 1:
             H = self.H(t=t, **params)
             return 1j / self.p.c_hbar * (np.dot(state, H) - np.dot(H, state))
+        pams = {'t':t}
+        pams.update(params)
         return -1j / self.p.c_hbar * self.H.apply(state, params=pams, left=True, symbolic=False)  # This may provide a speedup over np.dot(H, state)
 
     def transform(self, transform_op):
