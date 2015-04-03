@@ -37,6 +37,11 @@ class DummyStateOperator(StateOperator):
     def for_ensemble(self):
         return True
 
+    @property
+    def is_linear(self):
+    	return True
+
+
 class SimpleStateOperator(StateOperator):
     '''
     SimpleStateOperator wraps around an Operator object and when applied to a state,
@@ -117,7 +122,7 @@ class SchrodingerStateOperator(StateOperator):
     @property
     def for_ensemble(self):
         return True
-    
+
     @property
     def is_linear(self):
         return True
