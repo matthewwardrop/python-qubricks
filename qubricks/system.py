@@ -796,7 +796,10 @@ class QuantumSystem(object):
 		:param operators: A sequence of operator names to use during integration (see `QuantumSystem.derivative_ops`).
 			Additional operators can be added using `Integrator.add_operator` on the returned `Integrator` instance.
 		:type operators: iterable of str
-		:param time_ops: A dictionary of `StateOperator` instances indexed by times (see `Integrator.time_ops`).
+		:param time_ops: A dictionary of `StateOperator` instances, or a two-tuple of a StateOperator subclass
+			with a dictionary of arguments to pass to the constructor when required, indexed by times (see `Integrator.time_ops`). 
+			The two-tuple specification is for use with multithreading, where a `StateOperator` instance may not be so easily
+			picked. The `StateOperator` instance is initialised before being pass to an `Integrator` instance.
 		:type time_ops: dict
 		:param params: Parameter overrides to use during basis transformations and integration.
 		:type params: dict
@@ -810,6 +813,11 @@ class QuantumSystem(object):
 		ops = self.__integrator_operators(components=components, operators=operators, basis=output, threshold=threshold)
 
 		for time, op in time_ops.items():
+			if not isinstance(op, StateOperator):
+				if type(op) == tuple and len(op) == 2 and issubclass(op[0], StateOperator) and type(op[1]) == dict:
+					op = op[0](self.p, **op[1])
+				else:
+					raise ValueError("Invalid StateOperator specification provided.")
 			if not (op.basis is None or isinstance(op.basis, Basis)):
 				op.basis = self.basis(op.basis)
 			time_ops[time] = op.change_basis(basis=self.basis(output), threshold=threshold)
