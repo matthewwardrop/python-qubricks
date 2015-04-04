@@ -641,6 +641,11 @@ class Operator(object):
 		If no parameters are specified, then only the simplification is performed. A full collapse
 		to a numerical matrix should be achieved by evaluating it numerically, as described in the class description.
 
+		.. note:: An optimised cache of parameters (and parameter expressions) is also made
+			using `Parameters.optimise`. These optimised parameter extraction methods also
+			assume that the parameters will no longer change. If the do end up changing, you
+			might witness some odd results.
+
 		:param wrt: A sequence of parameter names.
 		:type wrt: tuple
 		:param params: Parameter overrides.
@@ -676,14 +681,18 @@ class Operator(object):
 									subs[s] = self.p(str(s), **params)
 
 						coeff2, indet2 = getLinearlyIndependentCoeffs(indet.subs(subs))[0]
-						if isinstance(indet2,sympy.Number):
-							add_comp(None, coeff*coeff2*component)
+						if isinstance(indet2, sympy.Number):
+							add_comp(None, coeff * coeff2 * component)
 						else:
-							new_pam += coeff*coeff2*indet2
+							new_pam += coeff * coeff2 * indet2
 				if new_pam != 0:
 					add_comp(str(new_pam.simplify()), component)
 
-		return self._new(components)
+		new_op = self._new(components)
+		# Construct a cache which respects the parameter constancy indicated when calling this method
+		for pam in components.keys():
+			new_op._Operator__optimised[pam] = self.p.optimise(pam, *wrt, **params)
+		return new_op
 
 	# Support Indexing
 	def __getitem__(self, index):
