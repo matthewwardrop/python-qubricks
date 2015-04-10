@@ -114,7 +114,7 @@ class Perturb(object):
 				Es.append(sum([self.pt.E(i,ord) for ord in range(order + 1)]))
 			else:
 				Es.append(self.pt.E(i,order))
-		return Es
+		return np.array(Es, dtype=object)
 
 	def Psis(self, order=0, cumulative=True, subspace=None):
 		'''
