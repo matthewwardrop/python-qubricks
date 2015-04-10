@@ -300,13 +300,14 @@ class MeasurementIterationResults(object):
 		results.
 	'''
 
-	def __init__(self, ranges, ranges_eval, results, runtime=None, path=None, samplers={}):
+	def __init__(self, ranges, ranges_eval, results, params={}, runtime=None, path=None, samplers={}):
 		self.ranges = ranges
 		self.ranges_eval = ranges_eval
 		self.results = results
 		self.runtime = 0 if runtime is None else runtime
 		self.path = path
 		self.samplers = samplers
+		self.params = params
 
 		self.__check_sanity()
 
@@ -336,7 +337,7 @@ class MeasurementIterationResults(object):
 		233.411311
 		'''
 		for key, value in kwargs.items():
-			if key not in ['ranges', 'ranges_eval', 'data', 'runtime', 'path', 'samplers']:
+			if key not in ['ranges', 'ranges_eval', 'data', 'runtime', 'path', 'samplers', 'params']:
 				raise ValueError("Invalid update key: %s" % key)
 			if key is "runtime":
 				self.runtime += value
@@ -761,13 +762,13 @@ class MeasurementWrapper(object):
 			for name, meas in self.measurements.items():
 				data[name] = meas.iterate_results_init(ranges=ranges, shape=ranges_eval.shape, params=params, **kwargs)
 
-			results = MeasurementIterationResults(ranges, ranges_eval, data)
+			results = MeasurementIterationResults(ranges, ranges_eval, data, params=params)
 		else:
 			if not struct_allclose(ranges_eval, results.ranges_eval, rtol=1e-15, atol=1e-15):
 				if not raw_input("Attempted to resume measurement collection on a result set with different parameter ranges. Continue anyway? (y/N) ").lower().startswith('y'):
 					raise ValueError("Stopping.")
 			if type(results.results) != dict:
-				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]: results.results})
+				results.update(ranges=ranges, ranges_eval=ranges_eval, data={self.measurements.keys()[0]: results.results}, params=params)
 
 		def splitlist(l, length=None):
 			if length is None:
