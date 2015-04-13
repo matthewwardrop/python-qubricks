@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 
-def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian=None, components=[], params={}, hamiltonian_init=None, components_init=None, params_init=None, complete=False):
+def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian=None, components=[], params={}, hamiltonian_init=None, components_init=None, params_init=None, complete=False, derivative_decimals=8):
     '''
     This function returns a list of sequence which are the energy eigenvalues of the 
     states which map adiabatically to those provided in `states`. Consequently, the provided
@@ -41,9 +41,10 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
         are appended to the returned results.
     :type complete: bool
     
-    .. warning:: Since this method uses the ordering of the eigenvalues to detect which eigenvalues
-        belong to which eigenstates, this method does not work in cases when the adiabatic
-        theorem is violated (i.e. when energy levels cross).
+    .. warning:: This method tracks eigenvalues using the rule that the next accepted eigenvalue should be
+        the one with minimal absolute value of the second derivative (or equivalently, the one with the most 
+        continuous gradient). If you find that this causes unexpected jumps in your plot, please try
+        decreasing the granularity of your trace before reporting a bug.
     '''
 
     if hamiltonian_init is None:
@@ -53,7 +54,6 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
             hamiltonian_init = hamiltonian
     hamiltonian_init = hamiltonian_init.change_basis(system.basis(output), params=params)
 
-    state_specs = states
     states = system.subspace(states, input=input, output=output, params=params)
 
     if type(ranges) is not dict:
@@ -80,20 +80,29 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
     # Generate values to iterate over
     f_ranges = params.copy() # merge ranges and params to ensure consistency
     f_ranges.update(ranges)
-    rvals = system.p.range(*ranges.keys(),**f_ranges)
-    if type(rvals) != dict:
-        rvals = {ranges.keys()[0]: rvals}
+    print f_ranges, ranges.keys()
+    rvals = system.p.range(ranges.keys(),**f_ranges)
 
     if not complete:
         results = np.zeros((len(states),len(rvals.values()[0])))
     else:
         results = np.zeros((system.dim,len(rvals.values()[0])))
 
+    # Iterate over the value returned by `Parameters.range`.
     for i in xrange(len(rvals.values()[0])):
         vals = params.copy()
         for val in rvals:
             vals[val] = rvals[val][i]
-        evals = sorted(np.linalg.eigvals(hamiltonian(**vals)))
+        evals = sorted(np.linalg.eigvals(hamiltonian(**vals)).real)
+        
+        # Add the reported eigenvalue to the trace with least difference in the gradient (i.e. least second derivative)
+        
+        if i >= 2:
+            # Update the indicies according to the rule that it should preserve least second derivative
+            for j in xrange(len(indices)):
+                derivatives = map(lambda x: abs(x - 2*results[j][i-1] + results[j][i-2]), evals)
+                if round(derivatives[np.argmin(derivatives)],derivative_decimals) < round(derivatives[indices[j]],derivative_decimals):
+                    indices[j] = np.argmin(derivatives)
 
         results[:len(indices),i] = [evals[indices[j]] for j in xrange(len(indices))]
         if complete:
