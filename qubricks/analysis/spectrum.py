@@ -80,7 +80,6 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
     # Generate values to iterate over
     f_ranges = params.copy() # merge ranges and params to ensure consistency
     f_ranges.update(ranges)
-    print f_ranges, ranges.keys()
     rvals = system.p.range(ranges.keys(),**f_ranges)
 
     if not complete:
