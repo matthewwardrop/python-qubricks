@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 
-def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian=None, components=[], params={}, hamiltonian_init=None, components_init=None, params_init=None, complete=False, derivative_decimals=8):
+def energy_spectrum(system, states, ranges, input=None, output=None, threshold=False, hamiltonian=None, components=[], params={}, hamiltonian_init=None, components_init=None, params_init=None, complete=False, derivative_decimals=8):
     '''
     This function returns a list of sequence which are the energy eigenvalues of the 
     states which map adiabatically to those provided in `states`. Consequently, the provided
@@ -21,6 +21,8 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
     :type input: str, Basis or None
     :param output: The basis in which to perform the calculations.
     :type output: str, Basis or None
+    :param threshold: Whether to use a threshold (if boolean) or the threshold to use in basis transformations. (See `Basis.transform`.)
+    :type threshold: bool or float
     :param hamiltonian: The Hamiltonian for which a spectrum is desired.
     :type hamiltonian: Operator or None
     :param components: If `hamiltonian` is `None`, the components to use from the provided
@@ -52,9 +54,9 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
             hamiltonian_init = system.H(*(components_init if components_init is not None else components))
         else:
             hamiltonian_init = hamiltonian
-    hamiltonian_init = hamiltonian_init.change_basis(system.basis(output), params=params)
+    hamiltonian_init = hamiltonian_init.change_basis(system.basis(output), params=params, threshold=threshold)
 
-    states = system.subspace(states, input=input, output=output, params=params)
+    states = system.subspace(states, input=input, output=output, params=params, threshold=threshold)
 
     if type(ranges) is not dict:
         raise ValueError("Multi-dimensional ranges are not supported; and so ranges must be a dictionary.")
@@ -75,7 +77,7 @@ def energy_spectrum(system, states, ranges, input=None, output=None, hamiltonian
     # level crossings.
     if hamiltonian is None:
         hamiltonian = system.H(*components)
-    hamiltonian = hamiltonian.change_basis(system.basis(output), params=params)
+    hamiltonian = hamiltonian.change_basis(system.basis(output), params=params, threshold=threshold)
 
     # Generate values to iterate over
     f_ranges = params.copy() # merge ranges and params to ensure consistency
