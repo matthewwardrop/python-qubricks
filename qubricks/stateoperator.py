@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
-from parameters import Parameters
+from parampy import Parameters
 
 from .operator import Operator
 

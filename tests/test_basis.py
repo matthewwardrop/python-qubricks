@@ -4,7 +4,7 @@ sys.path.insert(0,'..')
 
 import numpy as np
 
-from parameters import Parameters
+from parampy import Parameters
 from qubricks import Operator
 from qubricks.wall import SpinBasis, SimpleBasis
 

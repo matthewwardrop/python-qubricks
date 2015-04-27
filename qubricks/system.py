@@ -4,7 +4,7 @@ import types
 
 import numpy as np
 
-from parameters import Parameters
+from parampy import Parameters
 
 from .basis import Basis
 from .operator import Operator, OperatorSet

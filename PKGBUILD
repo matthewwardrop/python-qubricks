@@ -7,7 +7,7 @@ arch=('i686' 'x86_64')
 url=""
 license=('GPL')
 groups=()
-depends=('python2' 'python2-numpy' 'python2-sympy' 'python2-scipy' 'python2-parameters>=1.2' )
+depends=('python2' 'python2-numpy' 'python2-sympy' 'python2-scipy' 'python2-parampy>=1.9.0' )
 makedepends=()
 provides=()
 conflicts=()

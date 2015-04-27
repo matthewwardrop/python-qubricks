@@ -271,7 +271,7 @@ class MeasurementIterationResults(object):
 	:type runtime: float
 	:param path: The location to use as a storage location by default.
 	:type path: str
-	:param samplers: A dictionary of named samplers (see `parameters.Parameters.range`) for future use with `ranges`, since functions cannot be serialised.
+	:param samplers: A dictionary of named samplers (see `parampy.Parameters.range`) for future use with `ranges`, since functions cannot be serialised.
 	:type samplers: dict of callables
 
 	Constructing a MeasurementIterationResults object:
@@ -363,7 +363,7 @@ class MeasurementIterationResults(object):
 
 	def continue_mask(self, measurements={}):
 		'''
-		This method provides a mask for the `parameters.iteration.RangesIterator` instance called in
+		This method provides a mask for the `parampy.iteration.RangesIterator` instance called in
 		`MeasurementWrapper.iterate_yielder`. The provided mask calls the `Measurement.iterate_continue_mask`
 		method with the appropriate results for each of the measurements provided in `measurements`.
 
@@ -694,7 +694,7 @@ class MeasurementWrapper(object):
 		:type times: iterable
 		:param initial: Initial state vectors / ensembles for the integration. (See `QuantumSystem.state`.
 		:type initial: list
-		:param params: Parameter overrides to use during integration. (See `parameters.Parameters` documentation).
+		:param params: Parameter overrides to use during integration. (See `parampy.Parameters` documentation).
 		:type param: dict
 		:param kwargs: Additional keyword arguments to pass to `QuantumSystem.integrate` and `Measurement.measure`.
 		:type kwargs: dict
@@ -729,13 +729,13 @@ class MeasurementWrapper(object):
 		the processing of the results is slow, this can greatly increase the time it takes to finish
 		the iteration.
 
-		:param ranges: A valid ranges specification (see `parameters.iteration.RangesIterator`)
+		:param ranges: A valid ranges specification (see `parampy.iteration.RangesIterator`)
 		:type ranges: list or dict
-		:param params: Parameter overrides to use (see `parameters.Parameters.range`)
+		:param params: Parameter overrides to use (see `parampy.Parameters.range`)
 		:type params: dict
-		:param masks: List of masks to use to filter indices to compute. (see `parameters.iteration.RangesIterator`)
+		:param masks: List of masks to use to filter indices to compute. (see `parampy.iteration.RangesIterator`)
 		:type masks: list of callables
-		:param nprocs: Number of processes to spawn (if 0 or 1 multithreading is not enabled) (see `parameters.iteration.RangesIterator`)
+		:param nprocs: Number of processes to spawn (if 0 or 1 multithreading is not enabled) (see `parampy.iteration.RangesIterator`)
 		:type nprocs: number or None
 		:param yield_every: Minimum number of seconds to go without returning the next result. To yield the value after
 			every successful computation, use yield_every=0 . If yield_every is None, results are returned
@@ -743,7 +743,7 @@ class MeasurementWrapper(object):
 		:type yield_every: number or None
 		:param results: Previously computed MeasurementIterationResults object to extend.
 		:type results: MeasurementIterationResults
-		:param progress: Whether progress information should be shown (True or False); or a callable. (see `parameters.iteration.RangesIterator` for more)
+		:param progress: Whether progress information should be shown (True or False); or a callable. (see `parampy.iteration.RangesIterator` for more)
 		:type progress: bool or callable
 		:param kwargs: Additional keyword arguments to be passed to `MeasurementWrapper.integrate` (and also to
 			`Measurement.iterate_results_init`.

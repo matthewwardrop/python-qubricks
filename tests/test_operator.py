@@ -5,7 +5,7 @@ sys.path.insert(0,'..')
 import sympy
 import numpy as np
 
-from parameters import Parameters
+from parampy import Parameters
 from qubricks import Operator
 
 class TestOperator(unittest.TestCase):

@@ -37,7 +37,7 @@ class CustomBasis(Basis):
 # 		
 # 		:param state: The state about which information should be returned.
 # 		:type state: str or iterable
-# 		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+# 		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 # 		:type params: dict
 # 		'''
 # 		return NotImplementedError("Basis.state_info has not been implemented.")
@@ -50,7 +50,7 @@ class CustomBasis(Basis):
 # 		
 # 		:param state: The state which should be represented as a string.
 # 		:type state: iterable
-# 		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+# 		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 # 		:type params: dict
 # 		'''
 # 		raise NotImplementedError("Basis.state_toString has not been implemented.")
@@ -63,7 +63,7 @@ class CustomBasis(Basis):
 # 		
 # 		:param string: A string representation of a state.
 # 		:type state: str
-# 		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+# 		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 # 		:type params: dict
 # 		'''
 # 		raise NotImplementedError("Basis.state_fromString has not been implemented.")
@@ -75,7 +75,7 @@ class CustomBasis(Basis):
 # 		
 # 		:param state: The state which should be represented as a string.
 # 		:type state: iterable
-# 		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+# 		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 # 		:type params: dict
 # 		'''
 # 		raise NotImplementedError("Basis.state_latex has not been implemented.")

@@ -5,7 +5,7 @@ import numpy as np
 import sympy
 import sympy.physics.quantum as sq
 
-from parameters import Parameters
+from parampy import Parameters
 
 from .operator import Operator
 
@@ -21,7 +21,7 @@ class Basis(object):
 		`Basis.init`, where `Basis.dim` will return the raw value stored (e.g. None).
 	:type dim: int or None
 	:param parameters: A Parameters instance, if required.
-	:type parameters: parameters.Parameters
+	:type parameters: parampy.Parameters
 	:param kwargs: Additional keyword arguments to pass to `Basis.init`.
 	:type kwargs: dict
 
@@ -150,7 +150,7 @@ class Basis(object):
 		`basis.operator`) as a list. The Operator is first evaluated with the 
 		parameter overrides in params.
 		
-		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 		:type params: dict
 		'''
 		i = xrange(self.dim)
@@ -165,7 +165,7 @@ class Basis(object):
 		
 		:param state: The state about which information should be returned.
 		:type state: str or iterable
-		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 		:type params: dict
 		'''
 		return NotImplementedError("Basis.state_info has not been implemented.")
@@ -178,7 +178,7 @@ class Basis(object):
 		
 		:param state: The state which should be represented as a string.
 		:type state: iterable
-		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 		:type params: dict
 		'''
 		raise NotImplementedError("Basis.state_toString has not been implemented.")
@@ -191,7 +191,7 @@ class Basis(object):
 		
 		:param string: A string representation of a state.
 		:type state: str
-		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 		:type params: dict
 		'''
 		raise NotImplementedError("Basis.state_fromString has not been implemented.")
@@ -203,7 +203,7 @@ class Basis(object):
 		
 		:param state: The state which should be represented as a string.
 		:type state: iterable
-		:param params: A dictionary of parameter overrides. (see `parameters.Parameters`)
+		:param params: A dictionary of parameter overrides. (see `parampy.Parameters`)
 		:type params: dict
 		'''
 		raise NotImplementedError("Basis.state_latex has not been implemented.")

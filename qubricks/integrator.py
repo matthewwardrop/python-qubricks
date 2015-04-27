@@ -6,7 +6,7 @@ import types
 from sympy.core.cache import clear_cache as sympy_clear_cache
 
 import numpy as np
-from parameters import Parameters
+from parampy import Parameters
 
 from .operator import Operator
 from .stateoperator import StateOperator
@@ -329,7 +329,7 @@ class Integrator(object):
 		
 		>>> integrator.params = { .... }
 		
-		See `parameters.Parameters` for more information about parameter overrides.
+		See `parampy.Parameters` for more information about parameter overrides.
 		'''
 		return self.__operator_params
 	@params.setter

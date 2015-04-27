@@ -1,5 +1,5 @@
 from .utility import getLinearlyIndependentCoeffs
-from parameters import Parameters
+from parampy import Parameters
 import numpy as np
 import scipy as sp
 import scipy.linalg as spla
@@ -21,7 +21,7 @@ class Operator(object):
 	:param components: Specification of the operator form
 	:type components: dict or numpy.ndarray or sympy.Matrix
 	:param parameters: Parameters instance
-	:type parameters: parameters.Parameters
+	:type parameters: parampy.Parameters
 	:param basis: The basis in which Operator is represented
 	:type basis: Basis or None
 	:param exact: :code:`True` if Operator is to maintain an exact representation of numbers.
