@@ -244,7 +244,7 @@ class Integrator(object):
 		'''
 		time_ops = {}
 		for time, op in self.time_ops.items():
-			time = self.p('t', t=time)  # ,**self.get_op_params()
+			time = float(self.p('t', t=time))  # ,**self.get_op_params()
 			if time in time_ops:
 				raise ValueError("Timed operators clash. Consider merging them.")
 			if indices is None:
@@ -672,7 +672,7 @@ class Integrator(object):
 			
 			for i, time in enumerate(list(times) + list(self.time_ops.keys())):
 				if not isinstance(time, (int, long, float, complex)):
-					time_map[self.p(time)] = time
+					time_map[float(self.p(time))] = time
 
 			# Populate return results
 			for i, result_set in enumerate(results):
@@ -693,7 +693,7 @@ class Integrator(object):
 		`( (<start_time>,....,<end_time>), (bool required for each time))` ) or a tuple of a StateOperator object
 		with a time and a boolean indicating whether the value should be stored (indicating some operation on the current state).
 		'''
-		t_offset = self.p(t_offset)
+		t_offset = float(self.p(t_offset))
 
 		sequence = []
 
