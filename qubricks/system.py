@@ -685,7 +685,7 @@ class QuantumSystem(object):
 		'''
 		A sorted list of the names of the measurements associated with this `QuantumSystem`.
 		'''
-		return sorted(self.measure._names())
+		return sorted(self.measure._names)
 
 	def add_measurement(self, name, measurement):
 		'''
@@ -797,7 +797,7 @@ class QuantumSystem(object):
 			Additional operators can be added using `Integrator.add_operator` on the returned `Integrator` instance.
 		:type operators: iterable of str
 		:param time_ops: A dictionary of `StateOperator` instances, or a two-tuple of a StateOperator subclass
-			with a dictionary of arguments to pass to the constructor when required, indexed by times (see `Integrator.time_ops`). 
+			with a dictionary of arguments to pass to the constructor when required, indexed by times (see `Integrator.time_ops`).
 			The two-tuple specification is for use with multithreading, where a `StateOperator` instance may not be so easily
 			picked. The `StateOperator` instance is initialised before being pass to an `Integrator` instance.
 		:type time_ops: dict
