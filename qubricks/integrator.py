@@ -10,7 +10,6 @@ from parampy import Parameters
 
 from .operator import Operator
 from .stateoperator import StateOperator
-from mako.exceptions import RuntimeException
 
 
 class Integrator(object):
@@ -417,7 +416,7 @@ class Integrator(object):
 		:type kwargs: dict
 		'''
 		if self.results is None:
-			raise RuntimeException("No previous results to extend. Aborting!")
+			raise RuntimeError("No previous results to extend. Aborting!")
 		
 		t_offset = self.results[0][-1][0]
 
