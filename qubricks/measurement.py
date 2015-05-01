@@ -737,6 +737,9 @@ class MeasurementWrapper(object):
 		:type masks: list of callables
 		:param nprocs: Number of processes to spawn (if 0 or 1 multithreading is not enabled) (see `parampy.iteration.RangesIterator`)
 		:type nprocs: number or None
+		:param distributed: `True` or a dictionary of keyword arguments to be passed to `dispy.JobCluster`, or `False` or `None` to disable
+			distributed computing.
+		:type distributed: None, bool or dict.
 		:param yield_every: Minimum number of seconds to go without returning the next result. To yield the value after
 			every successful computation, use yield_every=0 . If yield_every is None, results are returned
 			only after every computation has succeeded. By default, yield_every = 0.
