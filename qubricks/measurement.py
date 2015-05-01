@@ -719,7 +719,7 @@ class MeasurementWrapper(object):
 		else:
 			return self.on(None, times=times, initial=initial, params=params, **kwargs)
 
-	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, yield_every=0, results=None, progress=True, **kwargs):
+	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, distributed=False, yield_every=0, results=None, progress=True, **kwargs):
 		'''
 		This method iterates over the possible Cartesian products of the parameter ranges provided,
 		at each step running the `MeasurementWrapper.integrate` in the resulting parameter context.
@@ -749,10 +749,29 @@ class MeasurementWrapper(object):
 			`Measurement.iterate_results_init`.
 		:type kwargs: dict
 		'''
-
+		
+		
+		def integrate(*args, **kwargs):
+			if isinstance(system, Exception):
+				raise system
+			r = system.measure(*args).integrate(**kwargs)
+			return r
+			
 		# yield_every is the minimum/maximum number of seconds to go without yielding
+		
+		if distributed == True:
+			distributed = self.system._dispy()
 
-		iterator = self.system.p.ranges_iterator(ranges, masks=masks, ranges_eval=None if results is None else results.ranges_eval, params=params, function=self.integrate, function_kwargs=kwargs, nprocs=nprocs, progress=progress)
+		iterator = self.system.p.ranges_iterator(ranges, 
+												masks=masks, 
+												ranges_eval=None if results is None else results.ranges_eval, 
+												params=params, 
+												function=self.integrate if distributed in (None,False) else integrate, 
+												function_args=self.measurements.keys() if distributed not in (None,False) else (),
+												function_kwargs=kwargs, 
+												nprocs=nprocs, 
+												distributed=distributed, 
+												progress=progress)
 
 		kwargs['progress'] = False
 

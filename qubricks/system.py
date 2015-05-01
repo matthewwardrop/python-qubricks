@@ -908,7 +908,20 @@ class QuantumSystem(object):
 				return True
 
 		raise RuntimeError("The StateOperators specified for use do not collectively support the type of state required for time evolution.")
-
+	
+	def _dispy(self):
+		'''
+		This method should return a dictionary of keyword arguments and values to be passed to the
+		`dispy.JobCluster` class. A minimal guide to what this might contain is:
+			- depends : The list of files that are required to construct this system.
+			- setup : A python function that does not depend on any global variables which can
+				reconstruct this QuantumSystem object as a global variable called "system".
+			- cleanup : A python function that deletes any global variables created by setup.
+		Other options you may want to consider include:
+			- ping_interval
+			- reentrant
+		'''
+		raise NotImplementedError("You must implement QuantumSystem._dispy if you want to use the shorthand for distributed computing.")
 
 
 # Cheekily import some classes from wall
