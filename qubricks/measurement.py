@@ -444,7 +444,7 @@ class MeasurementIterationResults(object):
 	@classmethod
 	def load(cls, path, samplers={}):
 		'''
-		This method will load and populate a new MeasurementIterationResults object from previously
+		This classmethod will load and populate a new MeasurementIterationResults object from previously
 		saved data. If provided, `samplers` will be used to convert string names of samplers in the
 		ranges to functions.
 
@@ -464,6 +464,47 @@ class MeasurementIterationResults(object):
 		runtime = s.get('runtime')
 		s.close()
 		return cls(ranges=ranges, ranges_eval=ranges_eval, results=results, runtime=runtime, path=path, samplers=samplers)
+
+	@classmethod
+	def merge(cls, *paths, **kwargs):
+		'''
+		This classmethod will load the results from multiple MeasurementIterationResults objects and merge them
+		into one; appending data along the axis specified.
+
+		:param paths: A sequence of paths which can be loaded using `MeasurementIterationResults.load`, and which
+			will then be merged along the specified axis into one `MeasurementIterationResults`.
+		:type paths: tuple
+		:param kwargs: A dictionary of options; in particular it must contain the axis along which to merge
+			the data. It can also contain 'samplers' which is then passed to the `MeasurementIterationResults.load`
+			method and `MeasurementIterationResults` constructor.
+		:type kwargs: dict
+
+		Example:
+
+		>>> MeasurementIterationResults.merge('data1.shelf', 'data2.shelf', 'data3.shelf', axis=2)
+		'''
+		assert 'axis' in kwargs, "Axis along which to merge MeasurementIterationResults must be specified."
+		axis = kwargs['axis']
+
+		ranges = None
+		ranges_eval = None
+		results = None
+		runtime = 0
+
+		for path in paths:
+			m = MeasurementIterationResults.load(path, samplers=kwargs.get('samplers', {}))
+
+			if ranges_eval is None:
+				ranges_eval = m.ranges_eval
+				results = m.results
+				runtime = m.runtime
+			else:
+				np.append(ranges_eval, m.ranges_eval, axis=axis)
+				for key in results.keys():
+					results[key] = np.append(results[key], m.results[key], axis=axis)
+				runtime += m.runtime
+
+		return cls(ranges, ranges_eval, results, runtime=time, samplers=kwargs.get('samplers', {}))
 
 
 class Measurements(object):
