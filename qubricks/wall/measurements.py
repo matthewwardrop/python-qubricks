@@ -21,11 +21,13 @@ class AmplitudeMeasurement(Measurement):
                 ]
 
     def result_shape(self, *args, **kwargs):
-        return (len(kwargs['initial']), len(kwargs.get('times', 0)))
+        return (len(kwargs['int_initial']), len(kwargs.get('int_times', 0)))
 
-    def measure(self, data, times, initial, params={}, subspace=None, int_kwargs={}, **kwargs):
+    def measure(self, data, subspace=None, params={}, int_kwargs={}, **kwargs):
+        
+        times = int_kwargs.get('times',[])
 
-        rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type())
 
         self.__P = None
         for i, resultset in enumerate(data):
@@ -58,11 +60,13 @@ class ExpectationMeasurement(Measurement):
                 ]
 
     def result_shape(self, *args, **kwargs):
-        return (len(kwargs['initial']), len(kwargs.get('times', 0)))
+        return (len(kwargs['int_initial']), len(kwargs.get('int_times', 0)))
 
-    def measure(self, data, params={}, subspace=None, initial=None, times=None, **kwargs):
-
-        rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
+    def measure(self, data, subspace=None, params={}, int_kwargs={}, **kwargs):
+        
+        times = int_kwargs.get('times',[])
+        
+        rval = np.empty((len(data), len(times)), dtype=self.result_type())
 
         self.__P = None
         for i, resultset in enumerate(data):
@@ -97,15 +101,19 @@ class LeakageMeasurement(Measurement):
                 ]
 
     def result_shape(self, *args, **kwargs):
-        return (len(kwargs['initial']), len(kwargs.get('times', 0)))
+        return (len(kwargs['int_initial']), len(kwargs.get('int_times', 0)))
 
     @property
     def result_units(self):
         return None
 
-    def measure(self, data, times, initial, params={}, subspace=None, input=None, output=None, **kwargs):
+    def measure(self, data, subspace=None, params={}, int_kwargs={}, **kwargs):
+        
+        times = int_kwargs.get('times',[])
+        initial = int_kwargs.get('times',[])
+        output = int_kwargs.get('output',None)
 
-        rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
+        rval = np.empty((len(data), len(times)), dtype=self.result_type(int_initial=initial, int_times=times))
 
         self.__P = None
         for i, resultset in enumerate(data):
