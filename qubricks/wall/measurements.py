@@ -23,7 +23,7 @@ class AmplitudeMeasurement(Measurement):
     def result_shape(self, *args, **kwargs):
         return (len(kwargs['initial']), len(kwargs.get('times', 0)))
 
-    def measure(self, data, times, initial, params={}, subspace=None, **kwargs):
+    def measure(self, data, times, initial, params={}, subspace=None, int_kwargs={}, **kwargs):
 
         rval = np.empty((len(data), len(times)), dtype=self.result_type(initial=initial, times=times))
 

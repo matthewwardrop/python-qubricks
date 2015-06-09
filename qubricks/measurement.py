@@ -100,7 +100,7 @@ class Measurement(object):
 		raise NotImplementedError("Measurement.init has not been implemented.")
 
 	@abstractmethod
-	def measure(self, data=None, times=None, initial=None, params={}, **kwargs):
+	def measure(self, data=None, params={}, int_kwargs={}, **kwargs):
 		'''
 		This method should return the value of a measurement as a numpy array with
 		data type and shape as specified in `result_type` and `result_shape` respectively.
@@ -112,7 +112,8 @@ class Measurement(object):
 		Implementations of `measure` will typically be provided by integration data
 		by a `MeasurementWrapper` instance (which will be a structured numpy array
 		as returned by `Integrator.integrate) as the value for the `data` keyword.
-		A consistent set of values for `times` and `initial` will also be passed.
+		A consistent set of values for `times` and `initial` will also be passed
+		as keywords inside `int_kwargs`.
 
 		.. note:: If an implementation of `measure` omits the `data` keyword, QuBricks
 			assumes that all integration required by the `measure` operator will be
@@ -122,22 +123,17 @@ class Measurement(object):
 			override the `is_independent` method to return `True`. If external data
 			is *required*, then simply remove the default value of `data`.
 
-		Apart from the required keywords: `data`, `times`, `initial` and `params`; any additional
+		Apart from the required keywords of `data` and `params`; any additional
 		keywords can be specified. Refer to the documentation of `MeasurementWrapper` to
-		see how their values will filter through.
-
-		.. note:: Although the keywords `times` and `initial` are necessary, it is not
-			necessary to use these keywords. As such, Measurement operators need not
-			require an integration of the physical system.
+		see how their values will filter through to the various methods of QuBricks.
 
 		:param data: Data from a QuantumSystem.integrate call, or None.
 		:type data: numpy.ndarray or None
-		:param times: Sequence of times of interest.
-		:type times: iterable
-		:param initial: The initial state vectors/ensembles with which to start integrating.
-		:type initial: str or iterable
 		:param params: Parameter context to use during this measurement. Parameter types can be anything supported by Parameters.
 		:type params: dict
+		:param int_kwargs: Keyword arguments to be passed on to any integrator instances, 
+			which includes the times and initial states provided to `MeasurementWrapper.integrate`.
+		:type int_kwargs: dict
 		:param kwargs: Any other keyword arguments not collected explicitly.
 		:type kwargs: dict
 		'''
@@ -620,7 +616,7 @@ class MeasurementWrapper(object):
 	:param system: A QuantumSystem instance.
 	:type system: QuantumSystem
 	:param measurements: A dictionary of `Measurement` objects indexed by a string name.
-	:type dict:
+	:type measurements: dict
 
 	Constructing MeasurementWrapper objects:
 		The syntax for creating a `MeasurementWrapper` object is:
@@ -660,6 +656,17 @@ class MeasurementWrapper(object):
 			if not meas.is_independent and 'data' in inspect.getargspec(meas.measure)[0]:
 				return True
 		return False
+	
+	def __split_kwargs(self, kwargs, prefix):
+		kwargs = kwargs.copy()
+		if '%skwargs'%prefix in kwargs:
+			prefixed_kwargs = kwargs.pop('%skwargs'%prefix)
+		else:
+			prefixed_kwargs = {}
+		for kwarg in kwargs.keys():
+			if kwarg.startswith(prefix):
+				prefixed_kwargs[kwarg[len(prefix):]] = kwargs.pop(kwarg)
+		return kwargs, prefixed_kwargs
 
 	def add_measurements(self, **measurements):
 		'''
@@ -690,41 +697,36 @@ class MeasurementWrapper(object):
 		>>> wrapper.on(data, mykey=myvalue)
 
 		Note that if `data` is not `None`, then `initial` and `times` are
-		extracted from `data`, and passed to `Measurement.measure` as well.
+		extracted from `data`, and passed to `Measurement.measure` in `int_kwargs`.
 
 		Also note that if a measurement has `Measurement.is_independent` being `True`,
 		only the `initial` and `times` will be forwarded from `data`.
 		'''
-
-		initial = kwargs.get('initial')
-		times = kwargs.get('times')
+		
+		kwargs, int_kwargs = self.__split_kwargs(kwargs,'int_')
+		
 		if data is not None:
-			if initial is None:
-				kwargs['initial'] = data['state'][:, 0]
-			if times is None:
-				kwargs['times'] = data['time'][0, :]
-		else:
-			if 'initial' in kwargs and initial is None:
-				kwargs.pop('initial')
-			if 'times' in kwargs and times is None:
-				kwargs.pop('times')
-
+			if int_kwargs.get('initial') is None:
+				int_kwargs['initial'] = data['state'][:, 0]
+			if int_kwargs.get('times') is None:
+				int_kwargs['times'] = data['time'][0, :]
+		
 		if len(self.measurements) == 1:
 			measurement = self.measurements.values()[0]
 			if measurement.is_independent or 'data' not in inspect.getargspec(measurement.measure)[0]:
-				return measurement.measure(**kwargs)
+				return measurement.measure(int_kwargs=int_kwargs, **kwargs)
 			else:
-				return measurement.measure(data=data, **kwargs)
+				return measurement.measure(data=data, int_kwargs=int_kwargs, **kwargs)
 
 		res = {}
 		for name, measurement in self.measurements.items():
 			if measurement.is_independent or 'data' not in inspect.getargspec(measurement.measure)[0]:
-				res[name] = measurement.measure(**kwargs)
+				res[name] = measurement.measure(int_kwargs=int_kwargs, **kwargs)
 			else:
-				res[name] = measurement.measure(data=data, **kwargs)
+				res[name] = measurement.measure(data=data, int_kwargs=int_kwargs, **kwargs)
 		return res
 
-	def integrate(self, times=None, initial=None, params={}, **kwargs):
+	def integrate(self, params={}, **kwargs):
 		'''
 		This method performs an integration of the `QuantumSystem` referenced when
 		this object was constructed, and then calls `Measurement.on` on that data.
@@ -741,26 +743,21 @@ class MeasurementWrapper(object):
 		:type kwargs: dict
 
 		.. note:: Only keyword arguments prepended with 'int_' are forwarded to
-		`QuantumSystem.integrate`, with the prefix removed. These keywords are not
-		also passed to `Measurement.measure`.
+		`QuantumSystem.integrate`, with the prefix removed. These keywords are also
+		also passed to `Measurement.measure` in the `int_kwargs` dictionary.
 
 		For example:
 
 		>>> wrapper.integrate(times=['T'], initial=['logical0'])
 		'''
-		int_kwargs = {}
-		for kwarg in kwargs.keys():
-			if kwarg.startswith('int_'):
-				int_kwargs[kwarg[4:]] = kwargs.pop(kwarg)
-			if kwarg in inspect.getargspec(self.system.get_integrator).args:
-				int_kwargs[kwarg] = kwargs[kwarg]
+		kwargs, int_kwargs = self.__split_kwargs(kwargs,'int_')
 
 		if self.__integration_needed:
-			return self.on(self.system.integrate(times=times, initial=initial, params=params, **int_kwargs), params=params, **kwargs)
+			return self.on(self.system.integrate(params=params, **int_kwargs), params=params, int_kwargs=int_kwargs, **kwargs)
 		else:
-			return self.on(None, times=times, initial=initial, params=params, **kwargs)
+			return self.on(None, params=params, int_kwargs=int_kwargs, **kwargs)
 
-	def iterate_yielder(self, ranges, params={}, masks=None, nprocs=None, distributed=False, yield_every=0, results=None, progress=True, **kwargs):
+	def iterate_yielder(self, ranges, yield_every=0, results=None, params={}, **kwargs):
 		'''
 		This method iterates over the possible Cartesian products of the parameter ranges provided,
 		at each step running the `MeasurementWrapper.integrate` in the resulting parameter context.
@@ -772,52 +769,43 @@ class MeasurementWrapper(object):
 
 		:param ranges: A valid ranges specification (see `parampy.iteration.RangesIterator`)
 		:type ranges: list or dict
-		:param params: Parameter overrides to use (see `parampy.Parameters.range`)
-		:type params: dict
-		:param masks: List of masks to use to filter indices to compute. (see `parampy.iteration.RangesIterator`)
-		:type masks: list of callables
-		:param nprocs: Number of processes to spawn (if 0 or 1 multithreading is not enabled) (see `parampy.iteration.RangesIterator`)
-		:type nprocs: number or None
-		:param distributed: `True` or a dictionary of keyword arguments to be passed to `dispy.JobCluster`, or `False` or `None` to disable
-			distributed computing.
-		:type distributed: None, bool or dict.
 		:param yield_every: Minimum number of seconds to go without returning the next result. To yield the value after
 			every successful computation, use yield_every=0 . If yield_every is None, results are returned
 			only after every computation has succeeded. By default, yield_every = 0.
 		:type yield_every: number or None
 		:param results: Previously computed MeasurementIterationResults object to extend.
 		:type results: MeasurementIterationResults
-		:param progress: Whether progress information should be shown (True or False); or a callable. (see `parampy.iteration.RangesIterator` for more)
-		:type progress: bool or callable
+		:param params: Parameter overrides to use (see `parampy.Parameters.range`)
+		:type params: dict
 		:param kwargs: Additional keyword arguments to be passed to `MeasurementWrapper.integrate` (and also to
 			`Measurement.iterate_results_init`.
 		:type kwargs: dict
+		
+		Note that kwargs prefixed with "iter_" will be split out and passed as arguments to `parampy.iteration.RangeIterator`.
 		'''
 		
+		kwargs, iter_kwargs = self.__split_kwargs(kwargs, 'iter_')
 		
-		def integrate(*args, **kwargs):
-			if isinstance(system, Exception):
-				raise system
-			r = system.measure(*args).integrate(**kwargs)
-			return r
-			
-		# yield_every is the minimum/maximum number of seconds to go without yielding
-		
-		if distributed == True:
-			distributed = self.system._dispy()
+		## Prepare iterator kwargs
+		if iter_kwargs.get('distributed',False) is True:
+			def integrate(*args, **kwargs):
+				if isinstance(system, Exception):
+					raise system
+				r = system.measure(*args).integrate(**kwargs)
+				return r
+			iter_kwargs['distributed'] = self.system._dispy()
+			iter_kwargs['function'] = integrate
+			iter_kwargs['function_args'] = self.measurements.keys()
+		else:
+			iter_kwargs['distributed'] = False
+			iter_kwargs['function'] = self.integrate
+			iter_kwargs['function_args'] = ()
+		iter_kwargs['function_kwargs'] = kwargs
 
-		iterator = self.system.p.ranges_iterator(ranges, 
-												masks=masks, 
-												ranges_eval=None if results is None else results.ranges_eval, 
-												params=params, 
-												function=self.integrate if distributed in (None,False) else integrate, 
-												function_args=self.measurements.keys() if distributed not in (None,False) else (),
-												function_kwargs=kwargs, 
-												nprocs=nprocs, 
-												distributed=distributed, 
-												progress=progress)
-
-		kwargs['progress'] = False
+		iterator = self.system.p.ranges_iterator(ranges,
+						ranges_eval=None if results is None else results.ranges_eval, 
+						params=params,
+						**iter_kwargs)
 
 		ranges_eval, indices = iterator.ranges_expand()
 		if results is None:
@@ -906,11 +894,9 @@ class MeasurementWrapper(object):
 				if results.is_complete(self.measurements):
 					return results
 
-				masks = kwargs.get('masks', None)
-				if masks is None:
-					masks = []
+				masks = kwargs.get('iter_masks', [])
 				masks.append(results.continue_mask(self.measurements))
-				kwargs['masks'] = masks
+				kwargs['iter_masks'] = masks
 
 				print coloured("Attempting to continue data collection...", "YELLOW", True)
 			else:

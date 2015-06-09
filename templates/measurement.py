@@ -13,45 +13,41 @@ class CustomMeasurement(Measurement):
 		There is no restriction on the method signature for the init method.
 		'''
 		raise NotImplementedError("Measurement.init has not been implemented.")
-
-	def measure(self, data=None, times=None, initial=None, params={}, **kwargs):
+	
+	def measure(self, data=None, params={}, int_kwargs={}, **kwargs):
 		'''
 		This method should return the value of a measurement as a numpy array with
 		data type and shape as specified in `result_type` and `result_shape` respectively.
-		
+
 		.. note:: It is possible to return types other than numpy array and still
 			be compatible with iteration (see MeasurementWrapper) provided you overload
 			the `iterate_results_init` and `iterate_results_add` methods.
-			
+
 		Implementations of `measure` will typically be provided by integration data
-		by a `MeasurementWrapper` instance (which will be a structured numpy array 
+		by a `MeasurementWrapper` instance (which will be a structured numpy array
 		as returned by `Integrator.integrate) as the value for the `data` keyword.
-		A consistent set of values for `times` and `initial` will also be passed.
-		
+		A consistent set of values for `times` and `initial` will also be passed
+		as keywords inside `int_kwargs`.
+
 		.. note:: If an implementation of `measure` omits the `data` keyword, QuBricks
 			assumes that all integration required by the `measure` operator will be
-			performed internally. It can use the reference to a QuantumSystem 
+			performed internally. It can use the reference to a QuantumSystem
 			instance at `Measurement.system` for this purpose. If the `data` keyword
 			is present (for testing/etc), but pre-computed integration data is undesired,
 			override the `is_independent` method to return `True`. If external data
 			is *required*, then simply remove the default value of `data`.
-		
-		Apart from the required keywords: `data`, `times`, `initial` and `params`; any additional
-		keywords can be specified. Refer to the documentation of `MeasurementWrapper` to 
-		see how their values will filter through.
-		
-		.. note:: Although the keywords `times` and `initial` are necessary, it is not 
-			necessary to use these keywords. As such, Measurement operators need not
-			require an integration of the physical system.
-		
+
+		Apart from the required keywords of `data` and `params`; any additional
+		keywords can be specified. Refer to the documentation of `MeasurementWrapper` to
+		see how their values will filter through to the various methods of QuBricks.
+
 		:param data: Data from a QuantumSystem.integrate call, or None.
 		:type data: numpy.ndarray or None
-		:param times: Sequence of times of interest.
-		:type times: iterable
-		:param initial: The initial state vectors/ensembles with which to start integrating.
-		:type initial: str or iterable
 		:param params: Parameter context to use during this measurement. Parameter types can be anything supported by Parameters.
 		:type params: dict
+		:param int_kwargs: Keyword arguments to be passed on to any integrator instances, 
+			which includes the times and initial states provided to `MeasurementWrapper.integrate`.
+		:type int_kwargs: dict
 		:param kwargs: Any other keyword arguments not collected explicitly.
 		:type kwargs: dict
 		'''
