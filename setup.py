@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='qubricks',
-      version='1.0.0',
+      version='1.0.1',
       description='A library to assist in the rapid prototyping and simulation of quantum systems.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
