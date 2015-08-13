@@ -1,7 +1,7 @@
 python-qubricks
 ===============
 
-QuBricks is a toolkit for the analysis and simulation of quantum systems using Python. The primary goal of QuBricks is to facilitate insight into quantum systems; rather than to be the fastest or most efficient simulator. As such, the design of QuBricks is not especially geared toward very large or complicated quantum systems. It distinguishes itself from toolkits like QuTip (http://qutip.org/) in that before simulations everything can be expressed symbolically; allowing for analytic observations and computations. Simulations are nonetheless performed numerically, with various optimisations performed to make them more efficient.
+QuBricks is a toolkit for the analysis and simulation of quantum systems using Python 2 (Python 3 support is blocked by the dependency on ParamPy). The primary goal of QuBricks is to facilitate insight into quantum systems; rather than to be the fastest or most efficient simulator. As such, the design of QuBricks is not especially geared toward very large or complicated quantum systems. It distinguishes itself from toolkits like QuTip (http://qutip.org/) in that before simulations everything can be expressed symbolically; allowing for analytic observations and computations. Simulations are nonetheless performed numerically, with various optimisations performed to make them more efficient.
 
 For more information regarding the use of QuBricks, refer to `documentation.pdf`.
 
