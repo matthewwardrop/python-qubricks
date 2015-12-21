@@ -1,5 +1,8 @@
 import numpy as np
 import sympy
+import itertools
+import math
+import mpmath
 import warnings
 from qubricks.operator import Operator
 DEBUG = False
@@ -415,3 +418,189 @@ class RSPT(object):
 		self.__Psis(index, order, psi)
 		debug("wf", order, psi)
 		return psi
+
+class SWPT(object):
+	'''
+	This class implements (degenerate) Schrieffer-Wolff Perturbation Theory.
+	It is geared toward generating symbolic solutions, in the hope that the perturbation
+	theory might provide insight into the quantum system at hand. For numerical solutions,
+	you are better off simply diagonalising the evaluated Hamiltonian.
+	For more details, review:
+	 - Bravyi, S., DiVincenzo, D. P., & Loss, D. (2011). Schrieffer-Wolff transformation for
+	   quantum many-body systems. Annals of Physics, 326(10), 2793-2826.
+
+	:param H_0: The unperturbed Hamiltonian to consider.
+	:type H_0: Operator, sympy matrix or numpy array
+	:param V: The Hamiltonian perturbation to consider.
+	:type V: Operator, sympy matrix or numpy array
+	:param subspace: The state indices to which attention should be restricted.
+	:type subspace: list of int
+	'''
+
+	def __init__(self, H_0=None, V=None, subspace=None):
+		self.__cache = {
+					'S': {},
+					'S_k': {},
+					}
+
+		self.H_0 = H_0
+		self.V = V
+
+		self.P_0 = np.zeros(self.H_0.shape)
+		self.Q_0 = np.zeros(self.H_0.shape)
+		for i in xrange(self.H_0.shape[0]):
+			if i in subspace:
+				self.P_0[i,i] = 1
+			else:
+				self.Q_0[i,i] = 1
+
+		self.V_od = self.O(self.V)
+		self.V_d = self.D(self.V)
+
+		if subspace is None:
+			raise ValueError("Must define low energy subspace.")
+		self.subspace = subspace
+
+		self.E0s, self.Psi0s = self.get_unperturbed_states()
+
+	def get_unperturbed_states(self):
+		'''
+		This method returns the unperturbed eigenvalues and eigenstates as
+		a tuple of energies and state-vectors.
+
+		.. note:: This is the only method that does not support a non-diagonal
+			:math:`H_0`. While possible to implement, it is not currently clear
+			that a non-diagonal :math:`H_0` is actually terribly useful.
+		'''
+
+		# Check if H_0 is diagonal
+		if not (self.H_0 - np.diag(self.H_0.diagonal()) == 0).all():
+			raise ValueError("Provided H_0 is not diagonal")
+
+		E0s = []
+		for i in xrange(self.H_0.shape[0]):
+			E0s.append(self.H_0[i, i])
+
+		subspace = self.subspace
+		if subspace is None:
+			subspace = range(self.H_0.shape[0])
+
+		done = set()
+		psi0s = [None] * len(E0s)
+		for i, E0 in enumerate(E0s):
+			if i not in done:
+				degenerate_subspace = np.where(np.array(E0s) == E0)[0]
+
+				if len(degenerate_subspace) > 1 and not (all(e in subspace for e in degenerate_subspace) or all(e not in subspace for e in degenerate_subspace)):
+					warnings.warn("Chosen subspace %s overlaps with degenerate subspace of H_0 %s. Extending the subspace to include these states." % (subspace, degenerate_subspace))
+					subspace = set(subspace).union(degenerate_subspace)
+
+				if len(degenerate_subspace) == 1 or i not in subspace:
+					v = np.zeros(self.H_0.shape[0], dtype='object')
+					v[i] = sympy.S('1')
+					psi0s[i] = v
+					done.add(i)
+				else:
+					m = sympy.Matrix(self.V)[tuple(degenerate_subspace), tuple(degenerate_subspace)]
+					l = 0
+					for (_energy, multiplicity, vectors) in m.eigenvects():
+						for k in xrange(multiplicity):
+							v = np.zeros(self.H_0.shape[0], dtype=object)
+							v[np.array(degenerate_subspace)] = np.array(vectors[k].transpose().normalized()).flatten()
+							psi0s[degenerate_subspace[l]] = v
+							done.add(degenerate_subspace[l])
+							l += 1
+
+		return E0s, psi0s
+
+	# Utility superoperators
+
+	def O(self, op):
+		return self.P_0.dot(op).dot(self.Q_0) + self.Q_0.dot(op).dot(self.P_0)
+
+	def D(self, op):
+		return self.P_0.dot(op).dot(self.P_0) + self.Q_0.dot(op).dot(self.Q_0)
+
+	def L(self, op):
+		denom = np.array(self.E0s).reshape((self.dim,1)) - np.array(self.E0s).reshape((1,self.dim))
+		denom[denom == 0] = 1. #TODO: DO THIS MORE SAFELY
+		return self.O(op)/denom
+
+	def hat(self, operator, operand):
+		return operator.dot(operand) - operand.dot(operator)
+
+	def S(self, n):
+		if n in self.__cache['S']:
+			return self.__cache['S'][n]
+		self.__cache['S'][n] = self._S(n)
+		return self.__cache['S'][n]
+
+	def _S(self, n):
+		if n < 1:
+			raise ValueError("i must be greater than or equal to zero.")
+		elif n == 1:
+			return self.L(self.V_od)
+		elif n == 2:
+			return -self.L(self.hat(self.V_d, self.S(1)))
+		else:
+			r = -self.L(self.hat(self.V_d, self.S(n-1)))
+			# k<=m => j<=(n-1)/2
+			for j in xrange(1, int(math.ceil( (n-1)/2 )) + 1 ):
+				a = 2**(2*j) * mpmath.bernoulli(2*j) / mpmath.factorial(2*j)
+				r += a * self.L(self.S_k(2*j, n-1))
+			return r
+
+	def _partition(self, number, count=None):
+		if count <= 0:
+			return set()
+		answer = set()
+		if count == 1:
+			answer.add((number, ))
+		for x in range(1, number):
+			ys = self._partition(number - x, count-1 if count is not None else None)
+			if len(ys) == 0:
+				continue
+ 			for y in ys:
+				answer.add(tuple(sorted((x, ) + y)))
+		return answer
+
+	def S_k(self, k, m):
+		if (k,m) in self.__cache['S']:
+			return self.__cache['S_k'][(k,m)]
+		self.__cache['S_k'][(k,m)] = self._S_k(k,m)
+		return self.__cache['S_k'][(k,m)]
+
+	def _S_k(self, k, m):
+		indices = self._partition(m,k)
+		r = np.zeros(self.H_0.shape, dtype=object)
+		for indexes in indices:
+			for perm in set(itertools.permutations(indexes)):
+				rt = self.V_od
+				for i in perm: # Can ignore ordering because all permutations are considered
+					rt = self.hat(self.S(i), rt)
+				r += rt
+		return r
+
+	def H_eff(self, order=0, restrict=True):
+		H = self.H_0.dot(self.P_0)
+		if order >= 1:
+			H += self.P_0.dot(self.V).dot(self.P_0)
+		for n in xrange(2,order+1):
+			H += self.H_eff_n(n)
+		H = np.vectorize(sympy.nsimplify)(H)
+		if restrict:
+			subspace = np.array(self.subspace)
+			return H[subspace[:,None], subspace]
+		return H
+
+	def H_eff_n(self, n):
+		# k<=m => j<=(n)/2
+		r = 0
+		for j in xrange(1, int(math.ceil( n/2. )) + 1 ):
+			b = 2*(2**(2*j)-1)*mpmath.bernoulli(2*j)/mpmath.factorial(2*j)
+			r += b*self.P_0.dot(self.S_k(2*j-1,n-1)).dot(self.P_0)
+		return r
+
+	@property
+	def dim(self):
+		return self.H_0.shape[0]
